@@ -119,11 +119,17 @@ const FAKE_TLDS = /^(js|ts|tsx|jsx|py|css|html|json|md|yml|yaml|c|h|java|rb|go)$
 
 const LOCATION_RE =
   /\b([A-Z][A-Za-z .'-]+,\s*(?:[A-Z]{2}|[A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+)?))(?:\s*\([^)]+\))?\b/;
+const TRAILING_CITY_RE =
+  /([A-Z][A-Za-z.'-]+(?:\s+[A-Z][A-Za-z.'-]+)*),\s*([A-Z]{2})\s*$/;
 
 const DATE_TOKEN =
   "(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?|[0-3]?\\d)(?:[./\\s-]\\d{2,4})?|\\d{4}";
 const DATE_RANGE_RE = new RegExp(
   `^(${DATE_TOKEN})\\s*[–—\\-–to]+\\s*(${DATE_TOKEN}|Present|Current|Now|Ongoing)$`,
+  "i",
+);
+const TRAILING_DATE_RE = new RegExp(
+  `\\s+(?:(Expected\\s+.+)|(?:(${DATE_TOKEN})\\s*[–—\\-]+\\s*(${DATE_TOKEN}|Present|Current|Now|Ongoing)))$`,
   "i",
 );
 
@@ -136,7 +142,12 @@ const BULLET_RE = /^(?:[-*•·‒–—]|\d+[.)])\s+/;
 export function classifyLink(label: string, url = ""): ParsedLinkKind {
   const hay = `${label} ${url}`.toLowerCase();
   if (/linked\s*in/.test(hay) || /linkedin\.com/.test(hay)) return "linkedin";
-  if (/github/.test(hay) || /github\.com/.test(hay)) return "github";
+  if (/github/.test(hay) || /github\.com/.test(hay)) {
+    const parts = normalizeLinkUrl(url).split("/").filter(Boolean);
+    // github.com/user is a profile; github.com/org/repo belongs on a project.
+    if (parts.length > 2) return "other";
+    return "github";
+  }
   if (/gitlab/.test(hay) || /gitlab\.com/.test(hay)) return "gitlab";
   if (
     /portfolio|personal site|website|homepage/.test(hay) ||
@@ -213,6 +224,8 @@ export function parseResumeText(raw: string, hint: ParseHint = {}): ParsedResume
     const fromSchool = parsed.education.find((item) => item.location.trim());
     if (fromSchool) parsed.profile.location = fromSchool.location.trim();
   }
+
+  attachProjectLinks(parsed.projects, parsed.profile.links);
 
   return parsed;
 }
@@ -307,12 +320,14 @@ function fillHeader(parsed: ParsedResume, headerLines: string[], fullText: strin
   );
   if (headline) parsed.profile.headline = headline;
 
-  const locationLine =
-    headerLines.find((line) => LOCATION_RE.test(line) && !EMAIL_RE.test(line)) ??
-    firstMatch(fullText, LOCATION_RE);
+  const locationLine = headerLines.find(
+    (line) => TRAILING_CITY_RE.test(line) && !EMAIL_RE.test(line),
+  );
   if (locationLine) {
-    const match = LOCATION_RE.exec(locationLine);
-    parsed.profile.location = (match?.[1] ?? locationLine).trim();
+    const match = TRAILING_CITY_RE.exec(locationLine);
+    parsed.profile.location = match
+      ? `${match[1]}, ${match[2]}`
+      : locationLine.trim();
   }
 }
 
@@ -454,21 +469,21 @@ function sectionOf(line: string): SectionKey | null {
 }
 
 function parseExperience(lines: string[]): ParsedExperience[] {
-  return chunkEntries(lines).flatMap((chunk) => {
+  return chunkEntries(lines, true).flatMap((chunk) => {
     const { title, rest } = peelTitle(chunk);
     if (!title) return [];
-    const { role, company, location } = splitRoleCompany(title);
+    const dated = peelInlineDate(title);
+    const { role, company, location } = splitRoleCompany(dated.text);
     if (!role && !company) return [];
     const { start, end, leftover } = peelDates(rest);
-    const bullets = leftover.filter((line) => BULLET_RE.test(line) || line.length > 40);
     return [
       {
         role,
         company,
         location,
-        start,
-        end,
-        bullets: bullets.map(stripBullet),
+        start: start || dated.start,
+        end: end || dated.end,
+        bullets: mergeWrappedBullets(leftover),
       },
     ];
   });
@@ -481,40 +496,45 @@ function parseEducation(lines: string[]): ParsedEducation[] {
     const { heading, location: trailingLocation } = peelTrailingLocation(title);
     const { role: degree, company: school, location } = splitRoleCompany(heading);
     const { start, end, leftover } = peelDates(rest);
-    const expected = leftover.find((line) => /^expected\b/i.test(line.trim()));
+    const datedLeftover = leftover.map((line) => peelInlineDate(line));
+    const expected = datedLeftover.find((item) => /^expected\b/i.test(item.start));
+    const degreeFromBody = datedLeftover
+      .map((item) => item.text)
+      .filter(Boolean)
+      .join(" ");
+    const schoolName = school || degree;
+    const degreeName = school ? degree : degreeFromBody;
     return [
       {
-        school: school || degree,
-        degree: school ? degree : "",
+        school: schoolName,
+        degree: degreeName,
         location: location || trailingLocation,
-        start: start || (expected ? expected.trim() : ""),
+        start: start || expected?.start || datedLeftover.find((item) => item.start)?.start || "",
         end,
-        details: leftover
-          .filter((line) => line !== expected)
-          .map(stripBullet)
-          .join(" "),
+        details: school && degreeFromBody && degreeFromBody !== degree ? degreeFromBody : "",
       },
     ];
   });
 }
 
 function peelTrailingLocation(title: string): { heading: string; location: string } {
-  const match = LOCATION_RE.exec(title);
-  if (!match || match.index === undefined || match.index === 0) {
-    return { heading: title, location: "" };
+  const trailing = title.match(
+    /^(?:(.*\S)\s+)?((?:(?:New|San|Los|Fort|Saint|North|South|West|East)\s+)?[A-Z][a-zA-Z.'-]+,\s*[A-Z]{2})\s*$/,
+  );
+  if (trailing?.[2]) {
+    return {
+      heading: (trailing[1] ?? "").trim(),
+      location: trailing[2].trim(),
+    };
   }
-  return {
-    heading: title.slice(0, match.index).trim(),
-    location: (match[1] ?? match[0]).trim(),
-  };
+  return { heading: title, location: "" };
 }
 
 function parseProjects(lines: string[]): ParsedProject[] {
-  return chunkEntries(lines).flatMap((chunk) => {
+  return chunkEntries(lines, true).flatMap((chunk) => {
     const { title, rest } = peelTitle(chunk);
     if (!title) return [];
-    const techMatch = title.match(/^(.*?)\s*\((.+)\)\s*$/);
-    const name = (techMatch?.[1] ?? title).trim();
+    const dated = peelInlineDate(title);
     const linkLine = rest.find((line) => URL_RE.test(line) && !BULLET_RE.test(line));
     const techLine = rest.find(
       (line) =>
@@ -523,15 +543,15 @@ function parseProjects(lines: string[]): ParsedProject[] {
         /[·•]/.test(line) &&
         line.length < 220,
     );
-    const tech =
-      techMatch?.[2]?.trim() ||
-      (techLine
-        ? techLine
-            .split(/[·•]/)
-            .map((part) => part.trim())
-            .filter(Boolean)
-            .join(", ")
-        : "");
+    const techMatch = dated.text.match(/^(.*?)\s*\((.+)\)\s*$/);
+    const name = (techLine ? dated.text : (techMatch?.[1] ?? dated.text)).trim();
+    const tech = techLine
+      ? techLine
+          .split(/[·•]/)
+          .map((part) => part.trim())
+          .filter(Boolean)
+          .join(", ")
+      : (techMatch?.[2]?.trim() ?? "");
     const { start, end, leftover } = peelDates(
       rest.filter((line) => line !== linkLine && line !== techLine),
     );
@@ -540,11 +560,9 @@ function parseProjects(lines: string[]): ParsedProject[] {
         name,
         tech,
         link: linkLine ? normalizeLinkUrl(firstMatch(linkLine, URL_RE) ?? linkLine) : "",
-        start,
-        end,
-        bullets: leftover
-          .filter((line) => BULLET_RE.test(line) || line.length > 40)
-          .map(stripBullet),
+        start: start || dated.start,
+        end: end || dated.end,
+        bullets: mergeWrappedBullets(leftover),
       },
     ];
   });
@@ -562,7 +580,7 @@ function parseSkills(lines: string[]): ParsedSkillGroup[] {
     const skills = splitSkills(line);
     if (skills.length) {
       const last = groups.at(-1);
-      if (last && last.label === "Skills") last.skills.push(...skills);
+      if (last) last.skills.push(...skills);
       else groups.push({ label: "Skills", skills });
     }
   }
@@ -571,16 +589,16 @@ function parseSkills(lines: string[]): ParsedSkillGroup[] {
 
 function splitSkills(line: string): string[] {
   return line
-    .split(/[,|•·;/]/)
-    .map((skill) => skill.trim())
-    .filter((skill) => skill.length > 1 && skill.length < 40);
+    .split(/[,;|•·]/)
+    .map((skill) => skill.replace(/\s+/g, " ").trim())
+    .filter((skill) => skill.length > 0 && skill.length < 48);
 }
 
 /* -------------------------------------------------------------------------- */
 /*                                   Chunks                                   */
 /* -------------------------------------------------------------------------- */
 
-function chunkEntries(lines: string[]): string[][] {
+function chunkEntries(lines: string[], splitOnHeading = false): string[][] {
   const chunks: string[][] = [];
   let current: string[] = [];
 
@@ -590,15 +608,98 @@ function chunkEntries(lines: string[]): string[][] {
   };
 
   for (const raw of lines) {
-    const line = raw.trimEnd();
-    if (!line.trim()) {
+    const line = raw.trim();
+    if (!line) {
       flush();
       continue;
     }
-    current.push(line.trim());
+    if (splitOnHeading && current.length > 0 && looksLikeEntryHeading(line)) {
+      flush();
+    }
+    current.push(line);
   }
   flush();
   return chunks;
+}
+
+function looksLikeEntryHeading(line: string): boolean {
+  if (BULLET_RE.test(line)) return false;
+  if (looksLikeTechLine(line)) return false;
+  if (TRAILING_DATE_RE.test(line) || DATE_RANGE_RE.test(line)) return true;
+  return (
+    /^[A-Z][\w].{1,90}$/.test(line) &&
+    !line.includes(":") &&
+    line.split(/\s+/).length <= 12
+  );
+}
+
+function looksLikeTechLine(line: string): boolean {
+  return /[·]/.test(line) && !BULLET_RE.test(line) && line.length < 220;
+}
+
+function peelInlineDate(line: string): { text: string; start: string; end: string } {
+  if (/^expected\b/i.test(line.trim())) {
+    return { text: "", start: line.trim(), end: "" };
+  }
+  const expected = line.match(/\s+(Expected\s+.+)$/i);
+  if (expected && expected.index !== undefined) {
+    return {
+      text: line.slice(0, expected.index).trim(),
+      start: expected[1].trim(),
+      end: "",
+    };
+  }
+  const range = TRAILING_DATE_RE.exec(line);
+  if (range && range.index !== undefined && range.index > 0) {
+    return {
+      text: line.slice(0, range.index).trim(),
+      start: (range[2] ?? range[1] ?? "").trim(),
+      end: (range[3] ?? "").trim(),
+    };
+  }
+  return { text: line.trim(), start: "", end: "" };
+}
+
+function mergeWrappedBullets(lines: string[]): string[] {
+  const bullets: string[] = [];
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line || looksLikeTechLine(line)) continue;
+    if (BULLET_RE.test(line)) {
+      bullets.push(cleanPlain(stripBullet(line)));
+      continue;
+    }
+    if (bullets.length) {
+      bullets[bullets.length - 1] = cleanPlain(`${bullets[bullets.length - 1]} ${line}`);
+    } else if (line.length > 40) {
+      bullets.push(cleanPlain(line));
+    }
+  }
+  return bullets;
+}
+
+function cleanPlain(text: string): string {
+  return text.replace(/˜/g, "~").replace(/\s+/g, " ").trim();
+}
+
+function attachProjectLinks(projects: ParsedProject[], links: ParsedLink[]) {
+  const leftover: ParsedLink[] = [];
+  for (const link of links) {
+    if (classifyLink(link.label, link.url) !== "other" || !link.url) {
+      leftover.push(link);
+      continue;
+    }
+    const url = link.url.toLowerCase();
+    const project = projects.find((item) => {
+      if (item.link) return false;
+      const tokens = item.name.toLowerCase().split(/[^a-z0-9]+/).filter((part) => part.length > 4);
+      return tokens.some((token) => url.includes(token));
+    });
+    if (project) project.link = link.url;
+    else leftover.push(link);
+  }
+  links.length = 0;
+  links.push(...leftover);
 }
 
 function peelTitle(chunk: string[]): { title: string; rest: string[] } {

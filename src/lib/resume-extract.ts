@@ -6,6 +6,7 @@
  */
 
 import { sniffResumeKind, stripRtf, TEXT_DECODER } from "./resume-kind";
+import { extractTexFromZip } from "./resume-zip";
 import {
   classifyLink,
   defaultLabelForKind,
@@ -23,7 +24,18 @@ export async function extractResumeFromBytes(
     throw new Error("Save the old .doc file as .docx or export a PDF.");
   }
   if (kind === "unknown") {
-    throw new Error("Use a PDF, Word (.docx or .dotx), or a .txt file.");
+    throw new Error(
+      "Use a PDF, Word (.docx), Overleaf .tex, or paste the .tex source.",
+    );
+  }
+  if (kind === "zip") {
+    const tex = extractTexFromZip(bytes);
+    if (!tex) {
+      throw new Error(
+        "That zip does not contain a .tex file. In Overleaf, open the resume .tex, Select All, copy, and paste it in the app.",
+      );
+    }
+    return { text: tex, links: [] };
   }
   if (kind === "text" || kind === "tex") {
     return { text: TEXT_DECODER.decode(bytes), links: [] };
@@ -42,13 +54,15 @@ async function extractPdf(
 ): Promise<{ text: string; links: ParsedLink[] }> {
   const { extractLinks, extractText } = await import("unpdf");
 
-  const [{ text }, { links }] = await Promise.all([
-    extractText(bytes, { mergePages: true }),
-    extractLinks(bytes).catch(() => ({ links: [] as string[] })),
-  ]);
+  // unpdf transfers the buffer into a worker. Copy so text + links can both run.
+  const { text: rawText } = await extractText(bytes.slice(), { mergePages: true });
+  const text = Array.isArray(rawText) ? rawText.filter(Boolean).join("\n") : String(rawText ?? "");
+  const extracted = await extractLinks(bytes.slice()).catch(() => ({ links: [] as string[] }));
+  const urls = extracted.links ?? [];
 
-  const hinted = links
+  const hinted = urls
     .map((url): ParsedLink | null => {
+      if (url.toLowerCase().startsWith("mailto:")) return null;
       const normalized = normalizeLinkUrl(url);
       if (!normalized) return null;
       const kind = classifyLink("", normalized);

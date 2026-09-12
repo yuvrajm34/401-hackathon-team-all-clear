@@ -59,7 +59,9 @@ export function looksLikeLatexResume(source: string): boolean {
     /\\documentclass/.test(source) ||
     /\\resumeSubheading/.test(source) ||
     /\\resumeProjectHeading/.test(source) ||
-    /\\begin\{document\}/.test(source)
+    /\\resumeItem/.test(source) ||
+    /\\begin\{document\}/.test(source) ||
+    /\\href\{mailto:/.test(source)
   );
 }
 

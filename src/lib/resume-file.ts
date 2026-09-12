@@ -11,7 +11,7 @@ import { sniffResumeKind, stripRtf, TEXT_DECODER } from "./resume-kind";
 import { parseResumeText, type ParsedResume } from "./resume-parse";
 
 export const RESUME_ACCEPT =
-  ".pdf,.docx,.dotx,.docm,.tex,.txt,.md,.rtf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.wordprocessingml.template,application/x-tex,text/x-tex,text/plain,text/markdown,application/rtf";
+  ".pdf,.docx,.dotx,.docm,.tex,.zip,.txt,.md,.rtf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.wordprocessingml.template,application/x-tex,text/x-tex,application/zip,text/plain,text/markdown,application/rtf";
 
 const MAX_BYTES = 8 * 1024 * 1024;
 
@@ -19,6 +19,28 @@ export class ResumeFileError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "ResumeFileError";
+  }
+}
+
+/** Shared by file upload and the Overleaf paste box. */
+export function parseResumeSource(
+  source: string,
+  links: { label: string; url: string }[] = [],
+): ParsedResume {
+  const text = source.replace(/^\uFEFF/, "");
+  if (!text.trim()) {
+    throw new ResumeFileError("Paste the Overleaf .tex first.");
+  }
+
+  try {
+    return looksLikeLatexResume(text)
+      ? parseLatexResume(text)
+      : parseResumeText(text, { links });
+  } catch (caught) {
+    if (caught instanceof ResumeFileError) throw caught;
+    throw new ResumeFileError(
+      "Could not read that Overleaf source. Copy the full .tex (from \\documentclass through \\end{document}).",
+    );
   }
 }
 
@@ -40,17 +62,17 @@ export async function parseResumeFile(file: File): Promise<ParsedResume> {
   }
   if (kind === "unknown") {
     throw new ResumeFileError(
-      "Use a PDF, Word (.docx or .dotx), Overleaf .tex, or a .txt file.",
+      "Use a PDF, Word (.docx), Overleaf .tex, or paste the .tex source.",
     );
   }
 
   try {
     if (kind === "tex") {
-      return parseLatexResume(TEXT_DECODER.decode(bytes));
+      return parseResumeSource(TEXT_DECODER.decode(bytes));
     }
 
     const extracted =
-      kind === "pdf" || kind === "docx"
+      kind === "pdf" || kind === "docx" || kind === "zip"
         ? await extractOnServer(file)
         : {
             text:
@@ -60,11 +82,7 @@ export async function parseResumeFile(file: File): Promise<ParsedResume> {
             links: [],
           };
 
-    if (looksLikeLatexResume(extracted.text)) {
-      return parseLatexResume(extracted.text);
-    }
-
-    return parseResumeText(extracted.text, { links: extracted.links });
+    return parseResumeSource(extracted.text, extracted.links);
   } catch (caught) {
     if (caught instanceof ResumeFileError) throw caught;
     const message =

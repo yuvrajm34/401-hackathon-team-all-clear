@@ -1,13 +1,20 @@
 "use client";
 
-import { FileUp, LoaderCircle, Upload } from "lucide-react";
+import { ClipboardPaste, FileUp, LoaderCircle, Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
+import { TextArea } from "@/components/ui/Field";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { SlideOver } from "@/components/ui/SlideOver";
 import { toast } from "@/components/ui/Toaster";
-import { parseResumeFile, RESUME_ACCEPT, ResumeFileError } from "@/lib/resume-file";
+import {
+  parseResumeFile,
+  parseResumeSource,
+  RESUME_ACCEPT,
+  ResumeFileError,
+} from "@/lib/resume-file";
 import {
   describeParsedResume,
   parsedResumeIsEmpty,
@@ -55,8 +62,10 @@ function UploadResumeDialogInner({ open, onClose }: UploadResumeDialogProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const applyParsedMaster = useAppStore((state) => state.applyParsedMaster);
 
+  const [mode, setMode] = useState<"file" | "paste">("file");
   const [busy, setBusy] = useState(false);
   const [fileName, setFileName] = useState("");
+  const [paste, setPaste] = useState("");
   const [error, setError] = useState("");
   const [parsed, setParsed] = useState<ParsedResume | null>(null);
 
@@ -66,6 +75,17 @@ function UploadResumeDialogInner({ open, onClose }: UploadResumeDialogProps) {
     if (inputRef.current) inputRef.current.value = "";
   };
 
+  const takeParsed = (next: ParsedResume, label: string) => {
+    if (parsedResumeIsEmpty(next)) {
+      setError(
+        "Could not find name, education, or projects in that source. In Overleaf, open the .tex that has those sections, Select All, copy, and paste it here.",
+      );
+      return;
+    }
+    setFileName(label);
+    setParsed(next);
+  };
+
   const readFile = async (file: File) => {
     setBusy(true);
     setError("");
@@ -73,14 +93,7 @@ function UploadResumeDialogInner({ open, onClose }: UploadResumeDialogProps) {
     setFileName(file.name);
 
     try {
-      const next = await parseResumeFile(file);
-      if (parsedResumeIsEmpty(next)) {
-        setError(
-          "Could not read name, contact, or sections from that file. Try a text-based PDF or a .docx.",
-        );
-        return;
-      }
-      setParsed(next);
+      takeParsed(await parseResumeFile(file), file.name);
     } catch (caught) {
       const message =
         caught instanceof ResumeFileError
@@ -90,6 +103,24 @@ function UploadResumeDialogInner({ open, onClose }: UploadResumeDialogProps) {
     } finally {
       setBusy(false);
       resetPicker();
+    }
+  };
+
+  const readPaste = () => {
+    setBusy(true);
+    setError("");
+    setParsed(null);
+
+    try {
+      takeParsed(parseResumeSource(paste), "Pasted Overleaf .tex");
+    } catch (caught) {
+      const message =
+        caught instanceof ResumeFileError
+          ? caught.message
+          : "Could not read that source.";
+      setError(message);
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -115,64 +146,120 @@ function UploadResumeDialogInner({ open, onClose }: UploadResumeDialogProps) {
       open={open}
       onClose={onClose}
       title="Upload a master resume"
-      description="Overleaf .tex (Jake Gutierrez), PDF, Word, or plain text. The review lists every school, project, bullet, and skill group found in the file."
+      description="Upload a file, or paste the Overleaf .tex. The review lists every school, project, bullet, and skill group found."
       footer={
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
           <Button onClick={apply} disabled={!parsed || busy}>
-            Use this file
+            Use this resume
           </Button>
         </div>
       }
     >
-      <input
-        ref={inputRef}
-        type="file"
-        accept={RESUME_ACCEPT}
-        className="sr-only"
-        onChange={(event) => {
-          const file = event.target.files?.[0];
-          if (file) void readFile(file);
+      <SegmentedControl
+        ariaLabel="How to add the resume"
+        className="mb-4"
+        value={mode}
+        onChange={(next) => {
+          setMode(next);
+          setError("");
         }}
+        segments={[
+          { value: "file", label: "File" },
+          { value: "paste", label: "Paste .tex" },
+        ]}
       />
 
-      <button
-        type="button"
-        disabled={busy}
-        onClick={() => inputRef.current?.click()}
-        onDragOver={(event) => {
-          event.preventDefault();
-          event.dataTransfer.dropEffect = "copy";
-        }}
-        onDrop={(event) => {
-          event.preventDefault();
-          const file = event.dataTransfer.files?.[0];
-          if (file) void readFile(file);
-        }}
-        className="flex w-full flex-col items-center gap-2 rounded-xl border border-dashed border-line-strong bg-surface-muted/50 px-4 py-8 text-center transition hover:border-brand hover:bg-brand-soft/40 disabled:opacity-60"
-      >
-        {busy ? (
-          <LoaderCircle
-            size={22}
-            className="animate-spin text-brand"
-            aria-hidden="true"
+      {mode === "file" ? (
+        <>
+          <input
+            ref={inputRef}
+            type="file"
+            accept={`${RESUME_ACCEPT},.zip,application/zip`}
+            className="sr-only"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) void readFile(file);
+            }}
           />
-        ) : (
-          <FileUp size={22} className="text-brand" aria-hidden="true" />
-        )}
-        <span className="text-sm font-medium text-ink">
-          {busy ? "Reading the file…" : "Drop a file or browse"}
-        </span>
-        <span className="text-xs text-ink-subtle">
-          .tex, .pdf, .docx, or .txt
-        </span>
-      </button>
+
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => inputRef.current?.click()}
+            onDragOver={(event) => {
+              event.preventDefault();
+              event.dataTransfer.dropEffect = "copy";
+            }}
+            onDrop={(event) => {
+              event.preventDefault();
+              const file = event.dataTransfer.files?.[0];
+              if (file) void readFile(file);
+            }}
+            className="flex w-full flex-col items-center gap-2 rounded-xl border border-dashed border-line-strong bg-surface-muted/50 px-4 py-8 text-center transition hover:border-brand hover:bg-brand-soft/40 disabled:opacity-60"
+          >
+            {busy ? (
+              <LoaderCircle
+                size={22}
+                className="animate-spin text-brand"
+                aria-hidden="true"
+              />
+            ) : (
+              <FileUp size={22} className="text-brand" aria-hidden="true" />
+            )}
+            <span className="text-sm font-medium text-ink">
+              {busy ? "Reading the file…" : "Drop a file or browse"}
+            </span>
+            <span className="text-xs text-ink-subtle">
+              .tex, Overleaf zip, .pdf, or .docx
+            </span>
+          </button>
+        </>
+      ) : (
+        <div className="space-y-3">
+          <label className="block space-y-1.5">
+            <span className="text-xs font-medium text-ink-muted">
+              Overleaf source
+            </span>
+            <TextArea
+              rows={12}
+              value={paste}
+              spellCheck={false}
+              disabled={busy}
+              onChange={(event) => setPaste(event.target.value)}
+              onKeyDown={(event) => {
+                if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+                  event.preventDefault();
+                  readPaste();
+                }
+              }}
+              className="font-mono text-[13px]"
+              placeholder={
+                "In Overleaf: open the .tex with Education / Projects, Select All, copy, then paste here.\n\n\\documentclass[letterpaper,11pt]{article}\n...\n\\end{document}"
+              }
+            />
+          </label>
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={busy || !paste.trim()}
+            onClick={readPaste}
+          >
+            {busy ? (
+              <LoaderCircle size={14} className="animate-spin" aria-hidden="true" />
+            ) : (
+              <ClipboardPaste size={14} aria-hidden="true" />
+            )}
+            Scan pasted .tex
+          </Button>
+        </div>
+      )}
 
       {fileName ? (
         <p className="mt-3 text-xs text-ink-muted">
-          File: <span className="font-medium text-ink">{fileName}</span>
+          Source: <span className="font-medium text-ink">{fileName}</span>
         </p>
       ) : null}
 
@@ -187,7 +274,7 @@ function UploadResumeDialogInner({ open, onClose }: UploadResumeDialogProps) {
           <p className="text-xs font-medium text-ink-muted">
             Found in the file
           </p>
-          <ul className="max-h-[50vh] space-y-1.5 overflow-y-auto pr-1">
+          <ul className="max-h-[40vh] space-y-1.5 overflow-y-auto pr-1">
             {found.map((item, index) => (
               <li
                 key={`${index}-${item.slice(0, 40)}`}
