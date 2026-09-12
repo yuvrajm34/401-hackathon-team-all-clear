@@ -259,7 +259,7 @@ export function MatchPanel({
                 </p>
               ) : !suggestError ? (
                 <p className="mt-2 text-xs text-ink-subtle">
-                  Runs a local Ollama model (llama3.1:8b) to suggest specific
+                  Runs a local Ollama model (gemma3) to suggest specific
                   edits beyond keyword matching. Requires{" "}
                   <code className="rounded bg-surface-muted px-1 py-0.5">
                     ollama serve

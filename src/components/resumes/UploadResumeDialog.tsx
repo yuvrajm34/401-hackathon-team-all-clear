@@ -2,18 +2,27 @@
 
 import { FileUp, LoaderCircle, Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { SlideOver } from "@/components/ui/SlideOver";
 import { toast } from "@/components/ui/Toaster";
-import { parseResumeFile, RESUME_ACCEPT, ResumeFileError } from "@/lib/resume-file";
+import {
+  parseResumeFileQuick,
+  refineResumeWithAI,
+  RESUME_ACCEPT,
+  ResumeFileError,
+  type ResumeFileQuickResult,
+} from "@/lib/resume-file";
 import {
   describeParsedResume,
   parsedResumeIsEmpty,
   type ParsedResume,
 } from "@/lib/resume-parse";
 import { useAppStore } from "@/store/useAppStore";
+
+const EMPTY_MESSAGE =
+  "Could not read name, contact, or sections from that file. Try a text-based PDF or a .docx.";
 
 interface UploadResumeDialogProps {
   open: boolean;
@@ -60,6 +69,16 @@ function UploadResumeDialogInner({ open, onClose }: UploadResumeDialogProps) {
   const [error, setError] = useState("");
   const [parsed, setParsed] = useState<ParsedResume | null>(null);
 
+  // Guards so a slow AI call doesn't set state after the user picked a
+  // different file, or after the dialog closed (component unmounted).
+  const requestIdRef = useRef(0);
+  const unmountedRef = useRef(false);
+  useEffect(() => {
+    return () => {
+      unmountedRef.current = true;
+    };
+  }, []);
+
   const found = parsed ? describeParsedResume(parsed) : [];
 
   const resetPicker = () => {
@@ -67,30 +86,46 @@ function UploadResumeDialogInner({ open, onClose }: UploadResumeDialogProps) {
   };
 
   const readFile = async (file: File) => {
+    const requestId = ++requestIdRef.current;
     setBusy(true);
     setError("");
     setParsed(null);
     setFileName(file.name);
 
+    let quick: ResumeFileQuickResult;
     try {
-      const next = await parseResumeFile(file);
-      if (parsedResumeIsEmpty(next)) {
-        setError(
-          "Could not read name, contact, or sections from that file. Try a text-based PDF or a .docx.",
-        );
-        return;
-      }
-      setParsed(next);
+      quick = await parseResumeFileQuick(file);
     } catch (caught) {
       const message =
         caught instanceof ResumeFileError
           ? caught.message
           : "Could not read that file.";
       setError(message);
-    } finally {
       setBusy(false);
       resetPicker();
+      return;
     }
+
+    // Wait for the AI pass (when there is one) before showing anything —
+    // no partial/"refining" state, just the final result once it's ready.
+    // Falls back to the quick heuristic result if AI is unavailable, fails,
+    // or comes back empty.
+    const refined = quick.refineInput
+      ? await refineResumeWithAI(quick.refineInput)
+      : null;
+    const finalResult =
+      refined && !parsedResumeIsEmpty(refined) ? refined : quick.parsed;
+
+    if (unmountedRef.current || requestId !== requestIdRef.current) return;
+
+    setBusy(false);
+    resetPicker();
+
+    if (parsedResumeIsEmpty(finalResult)) {
+      setError(EMPTY_MESSAGE);
+      return;
+    }
+    setParsed(finalResult);
   };
 
   const apply = () => {
@@ -163,7 +198,7 @@ function UploadResumeDialogInner({ open, onClose }: UploadResumeDialogProps) {
           <FileUp size={22} className="text-brand" aria-hidden="true" />
         )}
         <span className="text-sm font-medium text-ink">
-          {busy ? "Reading the file…" : "Drop a file or browse"}
+          {busy ? "Parsing your resume…" : "Drop a file or browse"}
         </span>
         <span className="text-xs text-ink-subtle">
           .tex, .pdf, .docx, or .txt

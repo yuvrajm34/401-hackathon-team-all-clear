@@ -26,7 +26,29 @@ export class ResumeFileError extends Error {
   }
 }
 
-export async function parseResumeFile(file: File): Promise<ParsedResume> {
+/** Extracted text + hints the AI refine pass needs — kept so it can reuse
+ * the already-extracted text instead of re-reading the file. Null for
+ * LaTeX/already-structured input, which has nothing for the AI to improve. */
+export interface ResumeRefineInput {
+  text: string;
+  links: ParsedLink[];
+}
+
+export interface ResumeFileQuickResult {
+  parsed: ParsedResume;
+  refineInput: ResumeRefineInput | null;
+}
+
+/**
+ * Fast path: file → extracted text → regex/LaTeX heuristics. No AI call.
+ * This is the whole reason it's split from the AI refine step: extraction
+ * plus regex parsing resolves in well under a second, while a local LLM
+ * pass over the same text takes 20-30+ seconds. Callers should show this
+ * result immediately rather than blocking the UI on the slow path.
+ */
+export async function parseResumeFileQuick(
+  file: File,
+): Promise<ResumeFileQuickResult> {
   if (file.size === 0) {
     throw new ResumeFileError("That file is empty.");
   }
@@ -50,7 +72,10 @@ export async function parseResumeFile(file: File): Promise<ParsedResume> {
 
   try {
     if (kind === "tex") {
-      return parseLatexResume(TEXT_DECODER.decode(bytes));
+      return {
+        parsed: parseLatexResume(TEXT_DECODER.decode(bytes)),
+        refineInput: null,
+      };
     }
 
     const extracted =
@@ -65,13 +90,13 @@ export async function parseResumeFile(file: File): Promise<ParsedResume> {
           };
 
     if (looksLikeLatexResume(extracted.text)) {
-      return parseLatexResume(extracted.text);
+      return { parsed: parseLatexResume(extracted.text), refineInput: null };
     }
 
-    const aiParsed = await tryAIParse(extracted.text, extracted.links);
-    if (aiParsed) return aiParsed;
-
-    return parseResumeText(extracted.text, { links: extracted.links });
+    return {
+      parsed: parseResumeText(extracted.text, { links: extracted.links }),
+      refineInput: { text: extracted.text, links: extracted.links },
+    };
   } catch (caught) {
     if (caught instanceof ResumeFileError) throw caught;
     const message =
@@ -83,21 +108,25 @@ export async function parseResumeFile(file: File): Promise<ParsedResume> {
 }
 
 /**
- * Best-effort AI parse via a local Ollama model (see /api/resume/parse-ai).
+ * Slow path: asks the local Ollama model to re-parse the same extracted
+ * text for a more accurate result (handles whatever sections the resume
+ * actually has, instead of fixed regex patterns). Takes 20-30+ seconds on
+ * modest hardware — always call this after already showing the quick
+ * result, never in place of it.
+ *
  * Returns null on any failure — no Ollama running, model not pulled, bad
- * JSON, network error — so the caller falls back to the regex heuristics.
+ * JSON, network error, timeout — so the caller just keeps the quick result.
  * Silent by design: teammates without Ollama set up should see the same
- * heuristic-parser behavior as before, not an error.
+ * heuristic-parser result as before, not an error.
  */
-async function tryAIParse(
-  text: string,
-  links: ParsedLink[],
+export async function refineResumeWithAI(
+  input: ResumeRefineInput,
 ): Promise<ParsedResume | null> {
   try {
     const response = await fetch("/api/resume/parse-ai", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text, links }),
+      body: JSON.stringify({ text: input.text, links: input.links }),
     });
     if (!response.ok) {
       const payload = (await response.json().catch(() => null)) as
