@@ -7,6 +7,8 @@ import { immer } from "zustand/middleware/immer";
 import { addDays, todayIso } from "@/lib/dates";
 import { createId, nowIso } from "@/lib/ids";
 import { buildDemoSnapshot } from "@/lib/demo-data";
+import type { JobListing } from "@/lib/jobs/types";
+import { normalizeUrl } from "@/lib/jobs/url";
 import {
   createResume,
   tailorFromMaster,
@@ -55,6 +57,8 @@ export type NewCommunicationInput = Omit<
 interface Actions {
   /* Applications */
   addApplication: (input: NewApplicationInput) => string;
+  /** Returns the new id, or `null` when this posting is already tracked. */
+  importJobListing: (listing: JobListing) => string | null;
   updateApplication: (
     id: string,
     patch: Partial<Omit<Application, "id" | "createdAt">>,
@@ -112,6 +116,15 @@ function touch(application: Application) {
   application.updatedAt = nowIso();
 }
 
+/** "Data Science" -> "data-science", matching the tags used elsewhere. */
+function slugifyTag(label: string): string {
+  return label
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
 export const useAppStore = create<AppStore>()(
   persist(
     immer((set, get) => ({
@@ -148,6 +161,32 @@ export const useAppStore = create<AppStore>()(
         });
 
         return id;
+      },
+
+      /**
+       * Adds a posting found in Discover to the pipeline as a wishlist item,
+       * which leaves `dateApplied` empty until the user actually applies.
+       */
+      importJobListing: (listing) => {
+        const target = normalizeUrl(listing.url);
+        const alreadyTracked = get().applications.some(
+          (application) =>
+            application.url && normalizeUrl(application.url) === target,
+        );
+        if (alreadyTracked) return null;
+
+        const tag = slugifyTag(listing.department);
+
+        return get().addApplication({
+          company: listing.company,
+          position: listing.position,
+          location: listing.location,
+          workMode: listing.workMode,
+          url: listing.url,
+          stage: "wishlist",
+          jobDescription: listing.description,
+          tags: tag ? [tag] : [],
+        });
       },
 
       updateApplication: (id, patch) => {

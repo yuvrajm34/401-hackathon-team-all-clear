@@ -4,7 +4,7 @@ A job application organizer built for the Fall 2026 hackathon by team **All Clea
 
 Applying to a lot of places is a data problem disguised as a motivation problem. ApplyPath keeps the pipeline, the resume versions, and every reply in one place, so the only thing left to do is apply.
 
-Everything lives in your browser. There is no account, no server, and no database — which also means your salary notes and interview feedback never leave your machine.
+Personal data lives in your browser. There is no account and no database — salary notes and interview feedback never leave your machine. Job search proxies live Greenhouse boards through a local route handler so the listings stay small enough to score in the client.
 
 ## Getting started
 
@@ -28,6 +28,12 @@ npm run lint    # eslint
 ```
 
 ## What it does
+
+### Discovering openings
+
+- A **Discover** page searches live postings from a curated list of companies that publish their boards through Greenhouse's public, keyless API (`boards-api.greenhouse.io`).
+- Filter by company, remote, or field (Engineering, Design, Product, and so on). Each card can be scored against your master resume with the same keyword matcher used on applications.
+- **Add to wishlist** imports the posting into the pipeline with the description filled in. The same posting cannot be imported twice.
 
 ### Tracking applications
 
@@ -89,15 +95,18 @@ The stack was picked deliberately to get hands-on with the tools most commonly u
 
 ```
 src/
-├── app/                      # routes: dashboard, applications, resumes, settings
+├── app/                      # routes: dashboard, discover, applications, resumes, settings
+│   └── api/jobs/             # Greenhouse board proxy + search
 ├── components/
 │   ├── applications/         # Kanban, table, detail, forms, comms log, match panel
 │   ├── dashboard/            # stats, momentum, funnel, follow-up queue, activity
+│   ├── discover/             # live job search and import cards
 │   ├── resumes/              # hub, preview, and the section editors
 │   ├── layout/               # app shell, nav, theme, hydration gate
 │   └── ui/                   # button, panel, fields, drawer, toasts, progress ring
 ├── lib/
 │   ├── types.ts              # domain model, doubles as the persisted schema
+│   ├── jobs/                 # Greenhouse client, company list, listing shape
 │   ├── resume.ts             # tailoring, master diffing, derived read models
 │   ├── keywords.ts           # keyword extraction and match scoring
 │   ├── latex.ts              # Overleaf-ready .tex generation with escaping

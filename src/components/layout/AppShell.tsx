@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Compass,
   FileText,
   LayoutDashboard,
   Settings,
@@ -36,6 +37,7 @@ const NAV: NavItem[] = [
     shortLabel: "Track",
     icon: SquareKanban,
   },
+  { href: "/discover", label: "Discover", shortLabel: "Find", icon: Compass },
   { href: "/resumes", label: "Resumes", shortLabel: "Resumes", icon: FileText },
   { href: "/settings", label: "Settings", shortLabel: "Settings", icon: Settings },
 ];
