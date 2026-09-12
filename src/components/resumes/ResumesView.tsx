@@ -31,6 +31,7 @@ import type { Resume } from "@/lib/types";
 import { useAppStore } from "@/store/useAppStore";
 
 import { TailorDialog } from "./TailorDialog";
+import { UploadResumeButton } from "./UploadResumeDialog";
 
 export function ResumesView() {
   return (
@@ -72,17 +73,19 @@ function ResumesViewInner() {
           description="Put everything in it — every role, every bullet, every skill. Tailored copies are made by hiding what does not fit, so nothing is ever retyped."
           action={
             <div className="flex flex-wrap justify-center gap-2">
+              <UploadResumeButton variant="primary" label="Upload resume" />
               <Button
+                variant="secondary"
                 onClick={() => {
                   const id = createMasterResume();
                   router.push(`/resumes/${id}`);
                 }}
               >
                 <FilePlus2 size={16} aria-hidden="true" />
-                Create master resume
+                Start from scratch
               </Button>
               <Button
-                variant="secondary"
+                variant="ghost"
                 onClick={() => {
                   loadDemoData();
                   toast("Sample data loaded");
@@ -104,10 +107,13 @@ function ResumesViewInner() {
         description="One master resume, then a tailored copy for each role that deserves one."
         actions={
           master ? (
-            <Button variant="secondary" onClick={() => setTailorOpen(true)}>
-              <Wand2 size={16} aria-hidden="true" />
-              Tailor a copy
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <UploadResumeButton size="md" label="Upload resume" />
+              <Button variant="secondary" onClick={() => setTailorOpen(true)}>
+                <Wand2 size={16} aria-hidden="true" />
+                Tailor a copy
+              </Button>
+            </div>
           ) : (
             <Button
               onClick={() => {
@@ -255,6 +261,7 @@ function MasterCard({ resume }: { resume: Resume }) {
             <ButtonLink href={`/resumes/${resume.id}`} size="sm">
               Open editor
             </ButtonLink>
+            <UploadResumeButton size="sm" label="Replace from file" />
             <Button
               variant="secondary"
               size="sm"

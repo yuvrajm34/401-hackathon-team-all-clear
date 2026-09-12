@@ -31,6 +31,7 @@ import { useAppStore } from "@/store/useAppStore";
 
 import { ResumePreview } from "./ResumePreview";
 import { TailorDialog } from "./TailorDialog";
+import { UploadResumeButton } from "./UploadResumeDialog";
 import { EducationEditor } from "./editor/EducationEditor";
 import { ExperienceEditor } from "./editor/ExperienceEditor";
 import { ProfileEditor } from "./editor/ProfileEditor";
@@ -169,10 +170,13 @@ function ResumeDetailInner({ id }: { id: string }) {
             ) : null}
 
             {resume.isMaster ? (
-              <Button variant="secondary" onClick={() => setTailorOpen(true)}>
-                <Wand2 size={14} aria-hidden="true" />
-                Tailor a copy
-              </Button>
+              <>
+                <UploadResumeButton size="sm" label="Upload resume" />
+                <Button variant="secondary" onClick={() => setTailorOpen(true)}>
+                  <Wand2 size={14} aria-hidden="true" />
+                  Tailor a copy
+                </Button>
+              </>
             ) : null}
 
             <Button onClick={() => window.print()}>

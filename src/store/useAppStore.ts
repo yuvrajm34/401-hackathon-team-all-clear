@@ -10,10 +10,12 @@ import { buildDemoSnapshot } from "@/lib/demo-data";
 import type { JobListing } from "@/lib/jobs/types";
 import { normalizeUrl } from "@/lib/jobs/url";
 import {
+  applyParsedToResume,
   createResume,
   tailorFromMaster,
   type ResumeDiff,
 } from "@/lib/resume";
+import type { ParsedResume } from "@/lib/resume-parse";
 import { stageForOutcome } from "@/lib/stages";
 import {
   SCHEMA_VERSION,
@@ -81,6 +83,11 @@ interface Actions {
 
   /* Resumes */
   createMasterResume: () => string;
+  /** Fills the master from an uploaded file. Creates one if none exists. */
+  applyParsedMaster: (parsed: ParsedResume) => {
+    id: string;
+    applied: string[];
+  };
   updateResume: (id: string, recipe: (resume: Resume) => void) => void;
   renameResume: (id: string, name: string) => void;
   duplicateResume: (id: string) => string | null;
@@ -320,6 +327,23 @@ export const useAppStore = create<AppStore>()(
         });
 
         return resume.id;
+      },
+
+      applyParsedMaster: (parsed) => {
+        const id = get().createMasterResume();
+        let applied: string[] = [];
+
+        set((state) => {
+          const resume = state.resumes.find((item) => item.id === id);
+          if (!resume) return;
+          applied = applyParsedToResume(resume, parsed);
+          resume.updatedAt = nowIso();
+          if (parsed.profile.fullName.trim()) {
+            state.settings.ownerName = parsed.profile.fullName.trim();
+          }
+        });
+
+        return { id, applied };
       },
 
       updateResume: (id, recipe) => {

@@ -11,6 +11,7 @@ import {
 import { useMemo } from "react";
 
 import { QuickAddButton } from "@/components/applications/QuickAddButton";
+import { UploadResumeButton } from "@/components/resumes/UploadResumeDialog";
 import { HydrationGate } from "@/components/layout/HydrationGate";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button, ButtonLink } from "@/components/ui/Button";
@@ -92,6 +93,7 @@ function DashboardInner() {
               >
                 Load sample data
               </Button>
+              <UploadResumeButton variant="ghost" label="Upload a resume" />
               <ButtonLink href="/resumes" variant="ghost">
                 Build a master resume
               </ButtonLink>

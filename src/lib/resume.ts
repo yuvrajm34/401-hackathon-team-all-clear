@@ -1,4 +1,9 @@
 import { createId, nowIso } from "./ids";
+import {
+  classifyLink,
+  defaultLabelForKind,
+  type ParsedResume,
+} from "./resume-parse";
 import type {
   Bullet,
   EducationItem,
@@ -351,4 +356,175 @@ export function estimateLineCount(resume: Resume): number {
 export function dateRangeLabel(start: string, end: string): string {
   if (start && end) return `${start} – ${end}`;
   return start || end || "";
+}
+
+/**
+ * Writes a parsed upload onto an existing resume.
+ *
+ * Profile fields that the file actually has win. Labeled links (LinkedIn,
+ * GitHub, Portfolio) land on the matching row instead of stacking duplicates.
+ *
+ * If the file has any body sections, this is a full import: every structured
+ * section is replaced from the parse. Empty parsed sections are cleared so
+ * leftover sample roles / projects do not stay after a real resume upload.
+ * A contact-only file (name, email, phone, links) leaves existing sections.
+ */
+export function applyParsedToResume(
+  resume: Resume,
+  parsed: ParsedResume,
+): string[] {
+  const applied: string[] = [];
+  const { profile } = resume;
+
+  const setIf = (
+    key: keyof Omit<ResumeProfile, "links">,
+    value: string,
+    label: string,
+  ) => {
+    const next = value.trim();
+    if (!next) return;
+    profile[key] = next;
+    applied.push(label);
+  };
+
+  setIf("fullName", parsed.profile.fullName, "name");
+  setIf("headline", parsed.profile.headline, "headline");
+  setIf("email", parsed.profile.email, "email");
+  setIf("phone", parsed.profile.phone, "phone");
+  setIf("location", parsed.profile.location, "location");
+
+  const fullImport = parsedHasBody(parsed);
+
+  if (fullImport && !parsed.profile.headline.trim()) {
+    profile.headline = "";
+  }
+
+  if (!profile.location.trim()) {
+    const fromSchool = parsed.education.find((item) => item.location.trim());
+    if (fromSchool) {
+      profile.location = fromSchool.location.trim();
+      applied.push("location");
+    }
+  }
+
+  for (const incoming of parsed.profile.links) {
+    if (!incoming.url.trim()) continue;
+    const kind = classifyLink(incoming.label, incoming.url);
+    const label = incoming.label.trim() || defaultLabelForKind(kind);
+
+    const match = profile.links.find((link) => {
+      const existingKind = classifyLink(link.label, link.url);
+      if (kind !== "other" && existingKind === kind) return true;
+      return link.label.trim().toLowerCase() === label.toLowerCase();
+    });
+
+    if (match) {
+      match.url = incoming.url.trim();
+      if (!match.label.trim() || match.label === "Link") match.label = label;
+    } else {
+      profile.links.push({
+        id: createId("lnk"),
+        label,
+        url: incoming.url.trim(),
+      });
+    }
+    applied.push(label);
+  }
+
+  if (fullImport) {
+    const incomingKinds = new Set(
+      parsed.profile.links
+        .filter((link) => link.url.trim())
+        .map((link) => classifyLink(link.label, link.url)),
+    );
+    for (const link of profile.links) {
+      const kind = classifyLink(link.label, link.url);
+      if (kind !== "other" && !incomingKinds.has(kind)) {
+        link.url = "";
+      }
+    }
+  }
+
+  if (fullImport || parsed.summary.trim()) {
+    resume.summary = parsed.summary.trim();
+    if (parsed.summary.trim()) applied.push("summary");
+  }
+
+  if (fullImport || parsed.experience.length > 0) {
+    resume.experience = parsed.experience.map((item) => ({
+      id: createId("exp"),
+      company: item.company,
+      role: item.role,
+      location: item.location,
+      start: item.start,
+      end: item.end,
+      bullets:
+        item.bullets.length > 0
+          ? item.bullets.map((text) => createBullet(flattenPlain(text)))
+          : [createBullet()],
+      enabled: true,
+    }));
+    if (parsed.experience.length > 0) applied.push("experience");
+  }
+
+  if (fullImport || parsed.education.length > 0) {
+    resume.education = parsed.education.map((item) => ({
+      id: createId("edu"),
+      school: item.school,
+      degree: item.degree,
+      location: item.location,
+      start: item.start,
+      end: item.end,
+      details: item.details,
+      enabled: true,
+    }));
+    if (parsed.education.length > 0) applied.push("education");
+  }
+
+  if (fullImport || parsed.projects.length > 0) {
+    resume.projects = parsed.projects.map((item) => ({
+      id: createId("prj"),
+      name: item.name,
+      tech: item.tech,
+      link: item.link,
+      start: item.start,
+      end: item.end,
+      bullets:
+        item.bullets.length > 0
+          ? item.bullets.map((text) => createBullet(flattenPlain(text)))
+          : [createBullet()],
+      enabled: true,
+    }));
+    if (parsed.projects.length > 0) applied.push("projects");
+  }
+
+  if (fullImport || parsed.skills.length > 0) {
+    resume.skills = parsed.skills.map((group) => ({
+      id: createId("skl"),
+      label: group.label,
+      skills: group.skills,
+      enabled: true,
+    }));
+    if (parsed.skills.length > 0) applied.push("skills");
+  }
+
+  return unique(applied);
+}
+
+function parsedHasBody(parsed: ParsedResume): boolean {
+  return (
+    Boolean(parsed.summary.trim()) ||
+    parsed.experience.length > 0 ||
+    parsed.education.length > 0 ||
+    parsed.projects.length > 0 ||
+    parsed.skills.length > 0
+  );
+}
+
+function flattenPlain(text: string): string {
+  return text.replace(/\s+/g, " ").trim();
+}
+
+function unique(values: string[]): string[] {
+  return [...new Set(values)];
 }
