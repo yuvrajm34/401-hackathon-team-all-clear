@@ -1,4 +1,9 @@
 import { createId, nowIso } from "./ids";
+import {
+  classifyLink,
+  defaultLabelForKind,
+  type ParsedResume,
+} from "./resume-parse";
 import type {
   Bullet,
   EducationItem,
@@ -351,4 +356,128 @@ export function estimateLineCount(resume: Resume): number {
 export function dateRangeLabel(start: string, end: string): string {
   if (start && end) return `${start} – ${end}`;
   return start || end || "";
+}
+
+/**
+ * Writes a parsed upload onto an existing resume. Non-empty parsed fields
+ * win; empty parsed fields leave whatever was already there. Labeled links
+ * (LinkedIn, GitHub, Portfolio) land on the matching row instead of stacking
+ * duplicates.
+ */
+export function applyParsedToResume(
+  resume: Resume,
+  parsed: ParsedResume,
+): string[] {
+  const applied: string[] = [];
+  const { profile } = resume;
+
+  const setIf = (
+    key: keyof Omit<ResumeProfile, "links">,
+    value: string,
+    label: string,
+  ) => {
+    const next = value.trim();
+    if (!next) return;
+    profile[key] = next;
+    applied.push(label);
+  };
+
+  setIf("fullName", parsed.profile.fullName, "name");
+  setIf("headline", parsed.profile.headline, "headline");
+  setIf("email", parsed.profile.email, "email");
+  setIf("phone", parsed.profile.phone, "phone");
+  setIf("location", parsed.profile.location, "location");
+
+  for (const incoming of parsed.profile.links) {
+    if (!incoming.url.trim()) continue;
+    const kind = classifyLink(incoming.label, incoming.url);
+    const label = incoming.label.trim() || defaultLabelForKind(kind);
+
+    const match = profile.links.find((link) => {
+      const existingKind = classifyLink(link.label, link.url);
+      if (kind !== "other" && existingKind === kind) return true;
+      return link.label.trim().toLowerCase() === label.toLowerCase();
+    });
+
+    if (match) {
+      match.url = incoming.url.trim();
+      if (!match.label.trim() || match.label === "Link") match.label = label;
+    } else {
+      profile.links.push({
+        id: createId("lnk"),
+        label,
+        url: incoming.url.trim(),
+      });
+    }
+    applied.push(label);
+  }
+
+  if (parsed.summary.trim()) {
+    resume.summary = parsed.summary.trim();
+    applied.push("summary");
+  }
+
+  if (parsed.experience.length > 0) {
+    resume.experience = parsed.experience.map((item) => ({
+      id: createId("exp"),
+      company: item.company,
+      role: item.role,
+      location: item.location,
+      start: item.start,
+      end: item.end,
+      bullets:
+        item.bullets.length > 0
+          ? item.bullets.map((text) => createBullet(text))
+          : [createBullet()],
+      enabled: true,
+    }));
+    applied.push("experience");
+  }
+
+  if (parsed.education.length > 0) {
+    resume.education = parsed.education.map((item) => ({
+      id: createId("edu"),
+      school: item.school,
+      degree: item.degree,
+      location: item.location,
+      start: item.start,
+      end: item.end,
+      details: item.details,
+      enabled: true,
+    }));
+    applied.push("education");
+  }
+
+  if (parsed.projects.length > 0) {
+    resume.projects = parsed.projects.map((item) => ({
+      id: createId("prj"),
+      name: item.name,
+      tech: item.tech,
+      link: item.link,
+      start: item.start,
+      end: item.end,
+      bullets:
+        item.bullets.length > 0
+          ? item.bullets.map((text) => createBullet(text))
+          : [createBullet()],
+      enabled: true,
+    }));
+    applied.push("projects");
+  }
+
+  if (parsed.skills.length > 0) {
+    resume.skills = parsed.skills.map((group) => ({
+      id: createId("skl"),
+      label: group.label,
+      skills: group.skills,
+      enabled: true,
+    }));
+    applied.push("skills");
+  }
+
+  return unique(applied);
+}
+
+function unique(values: string[]): string[] {
+  return [...new Set(values)];
 }
