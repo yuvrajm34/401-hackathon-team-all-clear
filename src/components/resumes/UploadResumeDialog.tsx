@@ -274,7 +274,7 @@ function UploadResumeDialogInner({ open, onClose }: UploadResumeDialogProps) {
           <p className="text-xs font-medium text-ink-muted">
             Found in the file
           </p>
-          <ul className="max-h-[40vh] space-y-1.5 overflow-y-auto pr-1">
+          <ul className="max-h-[50vh] space-y-1.5 overflow-x-hidden overflow-y-auto pr-1">
             {found.map((item, index) => (
               <li
                 key={`${index}-${item.slice(0, 40)}`}

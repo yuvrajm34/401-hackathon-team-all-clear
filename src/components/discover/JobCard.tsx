@@ -85,7 +85,7 @@ export function JobCard({
           </button>
 
           {expanded ? (
-            <p className="mt-2 max-h-64 overflow-y-auto whitespace-pre-line rounded-lg bg-surface-muted/60 p-3 text-xs leading-relaxed text-ink-muted">
+            <p className="mt-2 max-h-64 overflow-x-hidden overflow-y-auto whitespace-pre-line break-words rounded-lg bg-surface-muted/60 p-3 text-xs leading-relaxed text-ink-muted">
               {listing.description}
             </p>
           ) : null}

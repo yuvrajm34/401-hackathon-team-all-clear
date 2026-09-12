@@ -6,7 +6,7 @@ import type { ComponentProps, ReactNode } from "react";
 import { cn } from "@/lib/cn";
 
 const CONTROL =
-  "w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink shadow-xs transition " +
+  "w-full rounded-lg border border-line bg-surface px-3 py-2 text-base md:text-sm text-ink shadow-xs transition " +
   "placeholder:text-ink-subtle hover:border-line-strong " +
   "focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/25 " +
   "disabled:cursor-not-allowed disabled:opacity-60";
@@ -157,7 +157,7 @@ export function InlineInput({ className, ...rest }: ComponentProps<"input">) {
   return (
     <input
       className={cn(
-        "w-full rounded-md border border-transparent bg-transparent px-2 py-1.5 text-sm text-ink transition",
+        "w-full rounded-md border border-transparent bg-transparent px-2 py-1.5 text-base md:text-sm text-ink transition",
         "placeholder:text-ink-subtle hover:border-line hover:bg-surface-muted",
         "focus:border-brand focus:bg-surface focus:outline-none focus:ring-2 focus:ring-brand/25",
         className,
@@ -176,7 +176,7 @@ export function InlineTextArea({
     <textarea
       rows={rows}
       className={cn(
-        "w-full resize-y rounded-md border border-transparent bg-transparent px-2 py-1.5 text-sm leading-relaxed text-ink transition",
+        "w-full resize-y rounded-md border border-transparent bg-transparent px-2 py-1.5 text-base md:text-sm leading-relaxed text-ink transition",
         "placeholder:text-ink-subtle hover:border-line hover:bg-surface-muted",
         "focus:border-brand focus:bg-surface focus:outline-none focus:ring-2 focus:ring-brand/25",
         className,

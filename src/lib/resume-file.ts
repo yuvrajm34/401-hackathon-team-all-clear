@@ -8,7 +8,11 @@
 
 import { looksLikeLatexResume, parseLatexResume } from "./resume-latex";
 import { sniffResumeKind, stripRtf, TEXT_DECODER } from "./resume-kind";
-import { parseResumeText, type ParsedResume } from "./resume-parse";
+import {
+  parseResumeText,
+  type ParsedLink,
+  type ParsedResume,
+} from "./resume-parse";
 
 export const RESUME_ACCEPT =
   ".pdf,.docx,.dotx,.docm,.tex,.zip,.txt,.md,.rtf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.wordprocessingml.template,application/x-tex,text/x-tex,application/zip,text/plain,text/markdown,application/rtf";
@@ -82,6 +86,13 @@ export async function parseResumeFile(file: File): Promise<ParsedResume> {
             links: [],
           };
 
+    if (looksLikeLatexResume(extracted.text)) {
+      return parseLatexResume(extracted.text);
+    }
+
+    const aiParsed = await tryAIParse(extracted.text, extracted.links);
+    if (aiParsed) return aiParsed;
+
     return parseResumeSource(extracted.text, extracted.links);
   } catch (caught) {
     if (caught instanceof ResumeFileError) throw caught;
@@ -90,6 +101,37 @@ export async function parseResumeFile(file: File): Promise<ParsedResume> {
         ? caught.message
         : "Could not read that file.";
     throw new ResumeFileError(message);
+  }
+}
+
+/**
+ * Best-effort AI parse via a local Ollama model (see /api/resume/parse-ai).
+ * Returns null on any failure — no Ollama running, model not pulled, bad
+ * JSON, network error — so the caller falls back to the regex heuristics.
+ * Silent by design: teammates without Ollama set up should see the same
+ * heuristic-parser behavior as before, not an error.
+ */
+async function tryAIParse(
+  text: string,
+  links: ParsedLink[],
+): Promise<ParsedResume | null> {
+  try {
+    const response = await fetch("/api/resume/parse-ai", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, links }),
+    });
+    if (!response.ok) {
+      const payload = (await response.json().catch(() => null)) as
+        | { error?: string }
+        | null;
+      if (payload?.error) console.warn("AI resume parse skipped:", payload.error);
+      return null;
+    }
+    const payload = (await response.json()) as { parsed?: ParsedResume };
+    return payload.parsed ?? null;
+  } catch {
+    return null;
   }
 }
 

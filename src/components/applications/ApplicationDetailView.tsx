@@ -252,7 +252,7 @@ function ApplicationDetailInner({ id }: { id: string }) {
             />
             <PanelBody>
               {application.jobDescription ? (
-                <div className="scrollbar-slim max-h-72 overflow-y-auto whitespace-pre-wrap text-xs leading-relaxed text-ink-muted">
+                <div className="scrollbar-slim max-h-72 overflow-x-hidden overflow-y-auto whitespace-pre-wrap break-words text-xs leading-relaxed text-ink-muted">
                   {application.jobDescription}
                 </div>
               ) : (

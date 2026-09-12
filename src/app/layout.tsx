@@ -68,7 +68,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
       </head>
-      <body className="min-h-full">
+      <body className="h-full overflow-hidden">
         <ThemeSync />
         <AppShell>{children}</AppShell>
       </body>

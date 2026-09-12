@@ -123,7 +123,7 @@ export function SlideOver({
           </button>
         </header>
 
-        <div className="scrollbar-slim flex-1 overflow-y-auto px-4 py-4 sm:px-6">
+        <div className="scrollbar-slim flex-1 overflow-x-hidden overflow-y-auto px-4 py-4 sm:px-6">
           {children}
         </div>
 

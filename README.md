@@ -27,6 +27,34 @@ npm run start   # serve the production build
 npm run lint    # eslint
 ```
 
+### Optional: AI resume parsing & tailoring suggestions (Ollama)
+
+Two features call a local model through [Ollama](https://ollama.com) instead of relying only on the built-in heuristics:
+
+- **Smarter resume upload parsing** — reads whatever sections your resume actually has instead of matching fixed regex patterns.
+- **AI tailoring suggestions** — on an application's page, the Keyword match panel gets a "Get suggestions" button that compares your resume against the job description and suggests specific edits.
+
+Both are fully optional. Without Ollama running, resume upload silently falls back to the regular parser and the suggestions button shows an error — nothing else in the app breaks.
+
+To enable them:
+
+1. [Install Ollama](https://ollama.com/download).
+2. Pull the model:
+   ```bash
+   ollama pull llama3.1:8b
+   ```
+3. Start the Ollama server and leave it running in its own terminal:
+   ```bash
+   ollama serve
+   ```
+4. Copy `.env.example` to `.env.local`:
+   ```bash
+   cp .env.example .env.local
+   ```
+   The defaults already point at `llama3.1:8b` on `http://localhost:11434`, so no edits are needed unless you're using a different model or host.
+
+**A note on speed:** local inference time depends entirely on your hardware. With a GPU it's usually single-digit seconds; CPU-only can take 30–90+ seconds per request — that's expected, not a bug. If a GPU is present but doesn't seem to be in use (check the terminal running `ollama serve` for `library=CUDA` vs `library=cpu`), restarting `ollama serve` once often fixes detection.
+
 ## What it does
 
 ### Discovering openings
@@ -44,7 +72,7 @@ npm run lint    # eslint
 
 ### Master resume and tailoring
 
-- **Upload a PDF, Word, Overleaf `.tex` (or the Overleaf source zip), or paste the `.tex`** to start or replace the master. Name, email, phone, location, and labeled links (`\href{…}{LinkedIn}`) are filled in automatically; sections land in the structured editor so you can tidy them.
+- **Upload a PDF, Word, Overleaf `.tex` (or the Overleaf source zip), or paste the `.tex`** to start or replace the master. Name, email, phone, location, and labeled links (`\href{…}{LinkedIn}`) are filled in automatically; sections land in the structured editor so you can tidy them. When [Ollama is running](#optional-ai-resume-parsing--tailoring-suggestions-ollama), parsing goes through a local model instead of regex heuristics, handling whatever sections your resume actually has rather than a fixed set.
 - One **master resume** holds everything you have ever done — every role, every bullet, every skill.
 - **Tailored copies** are cloned from the master with IDs preserved. Tailoring is subtractive: hide the bullets that do not fit rather than retyping the ones that do.
 - Any line you rewrite is badged `edited` and has a one-click **reset to master**, because the app diffs the copy against its source rather than storing edits separately.
@@ -71,6 +99,10 @@ Paste a job description and ApplyPath extracts the terms the posting actually em
 
 It is a heuristic, not a model, and it runs entirely offline.
 
+### AI tailoring suggestions
+
+With Ollama running, an application's Keyword match panel gets a **Get suggestions** button that sends the linked resume and the job description to a local model and gets back specific edits — rewriting a bullet to lead with impact, emphasizing something already true that matches the posting, or flagging a real gap (never suggesting you fabricate experience you don't have). This is separate from the keyword score above, which stays a fast offline heuristic either way.
+
 ## Design notes
 
 - **Mobile and desktop.** Sidebar navigation above 768px, a bottom tab bar below it. The Kanban board scrolls horizontally with snap points on phones; the resume editor collapses its two panes into an Edit/Preview toggle.
@@ -89,6 +121,7 @@ It is a heuristic, not a model, and it runs entirely offline.
 | State | Zustand with `persist` + Immer |
 | Drag and drop | `@dnd-kit` |
 | Icons | `lucide-react` |
+| AI (optional) | Local model via [Ollama](https://ollama.com) (`llama3.1:8b`) |
 
 The stack was picked deliberately to get hands-on with the tools most commonly used in modern web development.
 
