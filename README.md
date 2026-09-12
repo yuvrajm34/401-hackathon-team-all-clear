@@ -44,7 +44,7 @@ npm run lint    # eslint
 
 ### Master resume and tailoring
 
-- **Upload a PDF, Word, or text file** to start or replace the master. Name, email, phone, location, and labeled links (LinkedIn, GitHub, portfolio) are filled in automatically; sections land in the structured editor so you can tidy them.
+- **Upload a PDF, Word, Overleaf `.tex` (Jake Gutierrez), or text file** to start or replace the master. Name, email, phone, location, and labeled links (`\href{…}{LinkedIn}`) are filled in automatically; sections land in the structured editor so you can tidy them.
 - One **master resume** holds everything you have ever done — every role, every bullet, every skill.
 - **Tailored copies** are cloned from the master with IDs preserved. Tailoring is subtractive: hide the bullets that do not fit rather than retyping the ones that do.
 - Any line you rewrite is badged `edited` and has a one-click **reset to master**, because the app diffs the copy against its source rather than storing edits separately.

@@ -115,7 +115,7 @@ function UploadResumeDialogInner({ open, onClose }: UploadResumeDialogProps) {
       open={open}
       onClose={onClose}
       title="Upload a master resume"
-      description="PDF, Word, or plain text. Name, email, phone, and labeled links like LinkedIn or GitHub are filled in automatically."
+      description="Overleaf .tex (Jake Gutierrez), PDF, Word, or plain text. The review lists every school, project, bullet, and skill group found in the file."
       footer={
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>
@@ -166,7 +166,7 @@ function UploadResumeDialogInner({ open, onClose }: UploadResumeDialogProps) {
           {busy ? "Reading the file…" : "Drop a file or browse"}
         </span>
         <span className="text-xs text-ink-subtle">
-          .pdf, .docx, or .txt · stays in this browser
+          .tex, .pdf, .docx, or .txt
         </span>
       </button>
 
@@ -187,19 +187,24 @@ function UploadResumeDialogInner({ open, onClose }: UploadResumeDialogProps) {
           <p className="text-xs font-medium text-ink-muted">
             Found in the file
           </p>
-          <ul className="space-y-1.5">
-            {found.map((item) => (
+          <ul className="max-h-[50vh] space-y-1.5 overflow-y-auto pr-1">
+            {found.map((item, index) => (
               <li
-                key={item}
-                className="rounded-lg border border-line bg-surface px-3 py-1.5 text-sm text-ink"
+                key={`${index}-${item.slice(0, 40)}`}
+                className={
+                  item.startsWith("  ")
+                    ? "rounded-lg bg-surface-muted px-3 py-1.5 text-[13px] leading-snug text-ink-muted"
+                    : "rounded-lg border border-line bg-surface px-3 py-1.5 text-sm text-ink"
+                }
               >
-                {item}
+                {item.trim()}
               </li>
             ))}
           </ul>
           <p className="text-[11px] text-ink-subtle">
-            Applying this replaces matching sections on the master resume.
-            LinkedIn, GitHub, and portfolio URLs land on those labeled rows.
+            Applying this replaces the master with everything found in the
+            file. Sections the file does not have (for example Experience) are
+            cleared so leftover sample roles do not stay.
           </p>
         </div>
       ) : null}

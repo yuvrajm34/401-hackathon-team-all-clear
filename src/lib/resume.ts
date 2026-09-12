@@ -359,10 +359,15 @@ export function dateRangeLabel(start: string, end: string): string {
 }
 
 /**
- * Writes a parsed upload onto an existing resume. Non-empty parsed fields
- * win; empty parsed fields leave whatever was already there. Labeled links
- * (LinkedIn, GitHub, Portfolio) land on the matching row instead of stacking
- * duplicates.
+ * Writes a parsed upload onto an existing resume.
+ *
+ * Profile fields that the file actually has win. Labeled links (LinkedIn,
+ * GitHub, Portfolio) land on the matching row instead of stacking duplicates.
+ *
+ * If the file has any body sections, this is a full import: every structured
+ * section is replaced from the parse. Empty parsed sections are cleared so
+ * leftover sample roles / projects do not stay after a real resume upload.
+ * A contact-only file (name, email, phone, links) leaves existing sections.
  */
 export function applyParsedToResume(
   resume: Resume,
@@ -388,6 +393,20 @@ export function applyParsedToResume(
   setIf("phone", parsed.profile.phone, "phone");
   setIf("location", parsed.profile.location, "location");
 
+  const fullImport = parsedHasBody(parsed);
+
+  if (fullImport && !parsed.profile.headline.trim()) {
+    profile.headline = "";
+  }
+
+  if (!profile.location.trim()) {
+    const fromSchool = parsed.education.find((item) => item.location.trim());
+    if (fromSchool) {
+      profile.location = fromSchool.location.trim();
+      applied.push("location");
+    }
+  }
+
   for (const incoming of parsed.profile.links) {
     if (!incoming.url.trim()) continue;
     const kind = classifyLink(incoming.label, incoming.url);
@@ -412,12 +431,26 @@ export function applyParsedToResume(
     applied.push(label);
   }
 
-  if (parsed.summary.trim()) {
-    resume.summary = parsed.summary.trim();
-    applied.push("summary");
+  if (fullImport) {
+    const incomingKinds = new Set(
+      parsed.profile.links
+        .filter((link) => link.url.trim())
+        .map((link) => classifyLink(link.label, link.url)),
+    );
+    for (const link of profile.links) {
+      const kind = classifyLink(link.label, link.url);
+      if (kind !== "other" && !incomingKinds.has(kind)) {
+        link.url = "";
+      }
+    }
   }
 
-  if (parsed.experience.length > 0) {
+  if (fullImport || parsed.summary.trim()) {
+    resume.summary = parsed.summary.trim();
+    if (parsed.summary.trim()) applied.push("summary");
+  }
+
+  if (fullImport || parsed.experience.length > 0) {
     resume.experience = parsed.experience.map((item) => ({
       id: createId("exp"),
       company: item.company,
@@ -427,14 +460,14 @@ export function applyParsedToResume(
       end: item.end,
       bullets:
         item.bullets.length > 0
-          ? item.bullets.map((text) => createBullet(text))
+          ? item.bullets.map((text) => createBullet(flattenPlain(text)))
           : [createBullet()],
       enabled: true,
     }));
-    applied.push("experience");
+    if (parsed.experience.length > 0) applied.push("experience");
   }
 
-  if (parsed.education.length > 0) {
+  if (fullImport || parsed.education.length > 0) {
     resume.education = parsed.education.map((item) => ({
       id: createId("edu"),
       school: item.school,
@@ -445,10 +478,10 @@ export function applyParsedToResume(
       details: item.details,
       enabled: true,
     }));
-    applied.push("education");
+    if (parsed.education.length > 0) applied.push("education");
   }
 
-  if (parsed.projects.length > 0) {
+  if (fullImport || parsed.projects.length > 0) {
     resume.projects = parsed.projects.map((item) => ({
       id: createId("prj"),
       name: item.name,
@@ -458,24 +491,38 @@ export function applyParsedToResume(
       end: item.end,
       bullets:
         item.bullets.length > 0
-          ? item.bullets.map((text) => createBullet(text))
+          ? item.bullets.map((text) => createBullet(flattenPlain(text)))
           : [createBullet()],
       enabled: true,
     }));
-    applied.push("projects");
+    if (parsed.projects.length > 0) applied.push("projects");
   }
 
-  if (parsed.skills.length > 0) {
+  if (fullImport || parsed.skills.length > 0) {
     resume.skills = parsed.skills.map((group) => ({
       id: createId("skl"),
       label: group.label,
       skills: group.skills,
       enabled: true,
     }));
-    applied.push("skills");
+    if (parsed.skills.length > 0) applied.push("skills");
   }
 
   return unique(applied);
+}
+
+function parsedHasBody(parsed: ParsedResume): boolean {
+  return (
+    Boolean(parsed.summary.trim()) ||
+    parsed.experience.length > 0 ||
+    parsed.education.length > 0 ||
+    parsed.projects.length > 0 ||
+    parsed.skills.length > 0
+  );
+}
+
+function flattenPlain(text: string): string {
+  return text.replace(/\s+/g, " ").trim();
 }
 
 function unique(values: string[]): string[] {

@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // unpdf and mammoth expect Node; keep them out of the client bundle.
+  serverExternalPackages: ["unpdf", "mammoth"],
 };
 
 export default nextConfig;
