@@ -51,7 +51,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
 
   return (
-    <div className="flex min-h-dvh">
+    <div className="flex h-dvh overflow-hidden">
       {/* Desktop sidebar */}
       <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-line bg-surface md:flex print:hidden">
         <div className="px-5 py-5">
@@ -93,7 +93,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         {/* Header: brand on mobile, actions on every size */}
         <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-3 border-b border-line bg-canvas/85 px-4 backdrop-blur-md sm:px-6 print:hidden">
           <div className="md:hidden">
@@ -114,7 +114,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </header>
 
-        <main className="print-root flex-1 px-4 pb-24 pt-5 sm:px-6 sm:pb-10">
+        <main className="print-root min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-24 pt-5 sm:px-6 sm:pb-10">
           {children}
         </main>
       </div>
@@ -122,7 +122,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* Mobile bottom tab bar */}
       <nav
         aria-label="Main"
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface/95 backdrop-blur-md md:hidden print:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 [transform:translateZ(0)] border-t border-line bg-surface/95 backdrop-blur-md will-change-transform md:hidden print:hidden"
       >
         <ul className="mx-auto flex max-w-md items-stretch justify-between px-2 pb-[env(safe-area-inset-bottom)]">
           {NAV.map((item) => {

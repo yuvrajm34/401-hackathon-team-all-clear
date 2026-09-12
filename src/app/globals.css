@@ -92,6 +92,7 @@
     background-color: var(--canvas);
     color: var(--ink);
     font-family: var(--font-sans);
+    overscroll-behavior-y: contain;
   }
 
   :focus-visible {
