@@ -76,28 +76,47 @@ export interface ParseHint {
 const SECTION_ALIASES: Record<string, SectionKey> = {
   summary: "summary",
   "professional summary": "summary",
+  "summary of qualifications": "summary",
+  "career summary": "summary",
+  "profile summary": "summary",
   profile: "summary",
   about: "summary",
   "about me": "summary",
   objective: "summary",
   "career objective": "summary",
+  highlights: "summary",
   experience: "experience",
   "work experience": "experience",
   "work history": "experience",
   employment: "experience",
+  "employment history": "experience",
   "professional experience": "experience",
+  "relevant experience": "experience",
+  "internship experience": "experience",
+  internships: "experience",
   education: "education",
   academic: "education",
   academics: "education",
+  "education & training": "education",
+  "education and training": "education",
   projects: "projects",
   "personal projects": "projects",
   "selected projects": "projects",
   "side projects": "projects",
+  "academic projects": "projects",
+  "notable projects": "projects",
+  "key projects": "projects",
   skills: "skills",
   "technical skills": "skills",
   "tech stack": "skills",
   technologies: "skills",
   "technical skill": "skills",
+  "core competencies": "skills",
+  "areas of expertise": "skills",
+  "technical proficiencies": "skills",
+  "additional skills": "skills",
+  "skills & interests": "skills",
+  "skills and interests": "skills",
 };
 
 type SectionKey =
@@ -328,6 +347,30 @@ function looksLikeName(line: string): boolean {
 /*                                    Links                                   */
 /* -------------------------------------------------------------------------- */
 
+/** Known hosts for labels that resumes often show as a bare slug next to an
+ * icon (e.g. "LinkedIn  in/janedoe" or "GitHub  janedoe") instead of a full
+ * URL — the reader is expected to infer the domain from the icon/label. */
+const PLATFORM_DOMAINS: Record<string, string> = {
+  linkedin: "linkedin.com",
+  github: "github.com",
+  gitlab: "gitlab.com",
+};
+
+/** Reconstructs a full URL for a label + adjacent token when the token by
+ * itself doesn't look like a URL (no dot/TLD) but the label names a known
+ * platform. Returns "" when nothing usable can be built. */
+function resolvePlatformUrl(label: string, token: string): string {
+  const cleaned = token.trim().replace(/[),.;]+$/, "");
+  if (!cleaned) return "";
+  if (looksLikeUrl(cleaned)) return cleaned;
+
+  const domain = PLATFORM_DOMAINS[classifyLink(label, "")];
+  if (!domain) return "";
+  // "in/janedoe", "/in/janedoe", or just "janedoe" all resolve the same way.
+  const path = cleaned.replace(/^\/+/, "");
+  return looksLikeUrl(`${domain}/${path}`) ? `${domain}/${path}` : "";
+}
+
 function collectLinks(text: string, hinted: ParsedLink[]): ParsedLink[] {
   const found: ParsedLink[] = [...hinted];
 
@@ -340,17 +383,19 @@ function collectLinks(text: string, hinted: ParsedLink[]): ParsedLink[] {
   for (const match of text.matchAll(
     /\b(linked\s*in|github|gitlab|portfolio|personal site|website|site)\b\s*[:|—–-]\s*(\S+)/gi,
   )) {
-    found.push({ label: match[1].trim(), url: match[2].trim() });
+    const url = resolvePlatformUrl(match[1], match[2].trim());
+    if (url) found.push({ label: match[1].trim(), url });
   }
 
-  // "LinkedIn  linkedin.com/in/you" or a header row of labeled chips.
+  // "LinkedIn  linkedin.com/in/you" or a header row of labeled chips —
+  // including the bare-slug form ("LinkedIn  in/janedoe").
   for (const line of text.split("\n")) {
     const labeled = line.match(
       /^\s*(linked\s*in|github|gitlab|portfolio|website)\b\s+(\S+)/i,
     );
-    if (labeled && URL_RE.test(labeled[2])) {
-      found.push({ label: labeled[1], url: labeled[2] });
-    }
+    if (!labeled) continue;
+    const url = resolvePlatformUrl(labeled[1], labeled[2]);
+    if (url) found.push({ label: labeled[1], url });
   }
 
   const withoutEmails = text.replace(new RegExp(EMAIL_RE.source, "gi"), " ");
@@ -454,7 +499,8 @@ function sectionOf(line: string): SectionKey | null {
 }
 
 function parseExperience(lines: string[]): ParsedExperience[] {
-  return chunkEntries(lines).flatMap((chunk) => {
+  return chunkEntries(lines, { detectRunOn: true }).flatMap((rawChunk) => {
+    const chunk = dropLeadingNameLine(rawChunk);
     const { title, rest } = peelTitle(chunk);
     if (!title) return [];
     const { role, company, location } = splitRoleCompany(title);
@@ -475,7 +521,8 @@ function parseExperience(lines: string[]): ParsedExperience[] {
 }
 
 function parseEducation(lines: string[]): ParsedEducation[] {
-  return chunkEntries(lines).flatMap((chunk) => {
+  return chunkEntries(lines).flatMap((rawChunk) => {
+    const chunk = dropLeadingNameLine(rawChunk);
     const { title, rest } = peelTitle(chunk);
     if (!title) return [];
     const { heading, location: trailingLocation } = peelTrailingLocation(title);
@@ -504,13 +551,18 @@ function peelTrailingLocation(title: string): { heading: string; location: strin
     return { heading: title, location: "" };
   }
   return {
-    heading: title.slice(0, match.index).trim(),
+    // Strip the separator ("Northeastern University — Boston, MA" should
+    // leave "Northeastern University", not "Northeastern University —").
+    heading: title
+      .slice(0, match.index)
+      .replace(/[\s,—–|-]+$/, "")
+      .trim(),
     location: (match[1] ?? match[0]).trim(),
   };
 }
 
 function parseProjects(lines: string[]): ParsedProject[] {
-  return chunkEntries(lines).flatMap((chunk) => {
+  return chunkEntries(lines, { detectRunOn: true }).flatMap((chunk) => {
     const { title, rest } = peelTitle(chunk);
     if (!title) return [];
     const techMatch = title.match(/^(.*?)\s*\((.+)\)\s*$/);
@@ -580,13 +632,28 @@ function splitSkills(line: string): string[] {
 /*                                   Chunks                                   */
 /* -------------------------------------------------------------------------- */
 
-function chunkEntries(lines: string[]): string[][] {
+/**
+ * Groups a section's lines into one array per entry.
+ *
+ * Blank lines always split. When `detectRunOn` is set, a chunk also splits
+ * mid-stream when a new title-like line shows up after the entry already
+ * has a bullet — PDF text extraction (unpdf/pdf.js) reconstructs line
+ * breaks from glyph position, not paragraph markers, so the blank line that
+ * would normally separate back-to-back entries is frequently lost. Without
+ * this, two entries silently collapse into one and the second is dropped.
+ */
+function chunkEntries(
+  lines: string[],
+  options: { detectRunOn?: boolean } = {},
+): string[][] {
   const chunks: string[][] = [];
   let current: string[] = [];
+  let sawBullet = false;
 
   const flush = () => {
     if (current.length) chunks.push(current);
     current = [];
+    sawBullet = false;
   };
 
   for (const raw of lines) {
@@ -595,10 +662,49 @@ function chunkEntries(lines: string[]): string[][] {
       flush();
       continue;
     }
-    current.push(line.trim());
+    const trimmed = line.trim();
+    const isBullet = BULLET_RE.test(trimmed);
+
+    if (
+      options.detectRunOn &&
+      current.length > 0 &&
+      !isBullet &&
+      !DATE_RANGE_RE.test(trimmed) &&
+      (sawBullet || looksLikeNewEntryTitle(trimmed))
+    ) {
+      flush();
+    }
+
+    current.push(trimmed);
+    if (isBullet) sawBullet = true;
   }
   flush();
   return chunks;
+}
+
+/**
+ * A title-like line seen mid-chunk (not the chunk's own first line) that
+ * strongly signals a new entry is starting — e.g. "Weather Dashboard
+ * (Python, Flask)" right after a previous project's bullets, with no blank
+ * line in between. Deliberately narrow (trailing parenthetical only) to
+ * avoid splitting an ordinary detail line such as "B.S. in Computer
+ * Science — Systems concentration".
+ */
+function looksLikeNewEntryTitle(line: string): boolean {
+  return /\s\([^()]+\)\s*$/.test(line) && line.length < 100;
+}
+
+/**
+ * Strips a leading line that is the candidate's own name — e.g. a repeated
+ * page-break header from PDF text extraction landing at the top of an
+ * Education/Experience entry. Only ever drops chunk[0]: a company or school
+ * that happens to be a person's name is exceedingly rare, but a name
+ * literally opening the chunk right before real content is a known PDF
+ * extraction artifact.
+ */
+function dropLeadingNameLine(chunk: string[]): string[] {
+  if (chunk.length > 1 && looksLikeName(chunk[0])) return chunk.slice(1);
+  return chunk;
 }
 
 function peelTitle(chunk: string[]): { title: string; rest: string[] } {

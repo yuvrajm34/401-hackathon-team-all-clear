@@ -1,10 +1,10 @@
 "use client";
 
-import { Plus, Target } from "lucide-react";
+import { Loader2, Plus, Sparkles, Target } from "lucide-react";
 import Link from "next/link";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
-import { ButtonLink } from "@/components/ui/Button";
+import { Button, ButtonLink } from "@/components/ui/Button";
 import { Panel, PanelBody, PanelHeader } from "@/components/ui/Panel";
 import { ProgressRing } from "@/components/ui/ProgressRing";
 import { toast } from "@/components/ui/Toaster";
@@ -29,6 +29,38 @@ export function MatchPanel({
   resume: Resume | undefined;
 }) {
   const updateResume = useAppStore((state) => state.updateResume);
+
+  const [suggestions, setSuggestions] = useState<string[] | null>(null);
+  const [suggestLoading, setSuggestLoading] = useState(false);
+  const [suggestError, setSuggestError] = useState("");
+
+  const getSuggestions = async () => {
+    if (!resume) return;
+    setSuggestLoading(true);
+    setSuggestError("");
+    try {
+      const response = await fetch("/api/resume/tailor-suggestions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          resumeText: resumeText(resume),
+          jobDescription: application.jobDescription,
+        }),
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | { suggestions?: string[]; error?: string }
+        | null;
+      if (!response.ok || !payload) {
+        setSuggestError(payload?.error || "Could not generate suggestions.");
+        return;
+      }
+      setSuggestions(payload.suggestions ?? []);
+    } catch {
+      setSuggestError("Could not reach the AI suggestion service.");
+    } finally {
+      setSuggestLoading(false);
+    }
+  };
 
   const report = useMemo(
     () =>
@@ -182,6 +214,60 @@ export function MatchPanel({
                 </ul>
               </section>
             ) : null}
+
+            <section className="border-t border-line pt-3">
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-xs font-medium text-ink-muted">
+                  AI tailoring suggestions
+                </h3>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={getSuggestions}
+                  disabled={suggestLoading}
+                >
+                  {suggestLoading ? (
+                    <Loader2 size={14} className="animate-spin" aria-hidden="true" />
+                  ) : (
+                    <Sparkles size={14} aria-hidden="true" />
+                  )}
+                  {suggestions ? "Regenerate" : "Get suggestions"}
+                </Button>
+              </div>
+
+              {suggestError ? (
+                <p className="mt-2 rounded-lg bg-negative/10 px-3 py-2 text-xs text-negative">
+                  {suggestError}
+                </p>
+              ) : null}
+
+              {suggestions && suggestions.length > 0 ? (
+                <ul className="mt-2 space-y-1.5">
+                  {suggestions.map((suggestion, index) => (
+                    <li
+                      key={index}
+                      className="rounded-lg bg-surface-muted/60 px-3 py-2 text-xs leading-relaxed text-ink-muted"
+                    >
+                      {suggestion}
+                    </li>
+                  ))}
+                </ul>
+              ) : suggestions && suggestions.length === 0 ? (
+                <p className="mt-2 text-xs text-ink-subtle">
+                  Nothing to flag — the resume already lines up well with this
+                  posting.
+                </p>
+              ) : !suggestError ? (
+                <p className="mt-2 text-xs text-ink-subtle">
+                  Runs a local Ollama model (llama3.1:8b) to suggest specific
+                  edits beyond keyword matching. Requires{" "}
+                  <code className="rounded bg-surface-muted px-1 py-0.5">
+                    ollama serve
+                  </code>{" "}
+                  running locally.
+                </p>
+              ) : null}
+            </section>
           </div>
         )}
       </PanelBody>
