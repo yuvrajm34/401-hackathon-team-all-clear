@@ -20,7 +20,6 @@ import { Button, ButtonLink, buttonClasses } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Panel, PanelBody, PanelHeader } from "@/components/ui/Panel";
 import { ProgressRing } from "@/components/ui/ProgressRing";
-import { Sparkline } from "@/components/ui/Sparkline";
 import { toast } from "@/components/ui/Toaster";
 import { cn } from "@/lib/cn";
 import { formatDate } from "@/lib/dates";
@@ -176,38 +175,13 @@ function ResumesViewInner() {
                 const resume = resumes.find((item) => item.id === entry.resumeId);
                 if (!resume) return null;
                 return (
-                  <div key={entry.resumeId} className="space-y-1">
-                    <div className="flex items-center justify-between gap-3 text-xs">
-                      <Link
-                        href={`/resumes/${resume.id}`}
-                        className="truncate font-medium text-ink hover:text-ink-muted"
-                      >
-                        {resume.name}
-                      </Link>
-                      <span className="flex shrink-0 items-center gap-2">
-                        {entry.used >= 3 ? (
-                          <Sparkline
-                            values={[0, entry.interviewRate]}
-                            className="h-3 w-[72px]"
-                            label={`${entry.interviewRate} percent interview rate`}
-                          />
-                        ) : null}
-                        <span
-                          className={cn(
-                            "font-numeral",
-                            entry.used >= 3 && entry.interviewRate >= 50
-                              ? "text-positive"
-                              : entry.used >= 3 && entry.interviewRate === 0
-                                ? "text-negative"
-                                : "text-ink-muted",
-                          )}
-                        >
-                          {entry.interviews} of {entry.used} reached interview
-                          {entry.offers > 0 ? ` · ${entry.offers} offer` : ""}
-                        </span>
-                      </span>
-                    </div>
-                  </div>
+                  <Link
+                    key={entry.resumeId}
+                    href={`/resumes/${resume.id}`}
+                    className="block truncate text-xs font-medium text-ink hover:text-ink-muted"
+                  >
+                    {resume.name}
+                  </Link>
                 );
               })}
             </PanelBody>
