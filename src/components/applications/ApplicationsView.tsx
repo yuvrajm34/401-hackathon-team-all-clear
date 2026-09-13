@@ -118,7 +118,7 @@ function ApplicationsViewInner() {
   }
 
   return (
-    <div className="pb-16">
+    <>
       <PageHeader
         title="Applications"
         description={`${applications.length} tracked · ${
@@ -148,27 +148,25 @@ function ApplicationsViewInner() {
         }
       />
 
-      <div className="pointer-events-none fixed inset-x-0 bottom-[4.75rem] z-40 flex justify-center px-3 print:hidden sm:bottom-[5.25rem]">
-        <div className="pointer-events-auto flex max-w-full items-center gap-0.5 overflow-x-auto rounded-full bg-surface/90 p-1.5 shadow-raised backdrop-blur-xl">
+      <div className="mb-4 flex flex-wrap items-center gap-1.5">
+        <FilterChip
+          active={stageFilter === "all"}
+          onClick={() => setStageFilter("all")}
+        >
+          All stages
+        </FilterChip>
+        {STAGES.map((stage) => (
           <FilterChip
-            active={stageFilter === "all"}
-            onClick={() => setStageFilter("all")}
+            key={stage}
+            active={stageFilter === stage}
+            onClick={() => setStageFilter(stage)}
           >
-            All
+            {STAGE_META[stage].label}
+            <span className="ml-1 text-ink-subtle">
+              {applications.filter((a) => a.stage === stage).length}
+            </span>
           </FilterChip>
-          {STAGES.map((stage) => (
-            <FilterChip
-              key={stage}
-              active={stageFilter === stage}
-              onClick={() => setStageFilter(stage)}
-            >
-              {STAGE_META[stage].label}
-              <span className="ml-1 text-ink-subtle">
-                {applications.filter((a) => a.stage === stage).length}
-              </span>
-            </FilterChip>
-          ))}
-        </div>
+        ))}
       </div>
 
       {filtered.length === 0 ? (
@@ -198,7 +196,7 @@ function ApplicationsViewInner() {
       )}
 
       <MemePopup event={memeEvent} onDone={() => setMemeEvent(null)} />
-    </div>
+    </>
   );
 }
 
@@ -217,10 +215,10 @@ function FilterChip({
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        "shrink-0 rounded-full px-2.5 py-2 text-[11px] font-medium sm:px-3.5 sm:text-sm",
+        "chip-tone rounded-full px-2.5 py-1 text-xs font-medium",
         active
           ? "bg-brand-soft text-brand-on-soft"
-          : "text-ink-muted hover:bg-surface-muted hover:text-ink",
+          : "bg-surface-muted text-ink-muted hover:text-ink",
       )}
     >
       {children}
