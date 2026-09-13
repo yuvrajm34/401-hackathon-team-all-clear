@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 
-import { AppShell } from "@/components/layout/AppShell";
+import { AppFrame } from "@/components/layout/AppFrame";
 import { ThemeSync } from "@/components/layout/ThemeSync";
 import { STORAGE_KEY } from "@/store/useAppStore";
 
@@ -82,7 +82,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       </head>
       <body className="h-full overflow-hidden">
         <ThemeSync />
-        <AppShell>{children}</AppShell>
+        <AppFrame>{children}</AppFrame>
       </body>
     </html>
   );

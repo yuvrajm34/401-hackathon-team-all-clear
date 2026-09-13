@@ -1,6 +1,7 @@
 "use client";
 
-import { Database, Download, Trash2, Upload } from "lucide-react";
+import { Database, Download, LogOut, Trash2, Upload } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 
 import { HydrationGate } from "@/components/layout/HydrationGate";
@@ -11,6 +12,7 @@ import { Field, LabeledInput } from "@/components/ui/Field";
 import { Panel, PanelBody, PanelHeader } from "@/components/ui/Panel";
 import { ConfirmDialog } from "@/components/ui/SlideOver";
 import { toast } from "@/components/ui/Toaster";
+import { clearSession } from "@/lib/demo-session";
 import { downloadTextFile, readFileAsText } from "@/lib/download";
 import { SCHEMA_VERSION, type AppSnapshot } from "@/lib/types";
 import { STORAGE_KEY, useAppStore } from "@/store/useAppStore";
@@ -40,6 +42,7 @@ function SettingsInner() {
     resumes: useAppStore((state) => state.resumes.length),
   };
 
+  const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [resetOpen, setResetOpen] = useState(false);
   const [demoOpen, setDemoOpen] = useState(false);
@@ -210,12 +213,32 @@ function SettingsInner() {
             </div>
 
             <p className="rounded-lg bg-surface-muted/60 p-3 text-xs leading-relaxed text-ink-muted">
-              ApplyPath has no server and no account. That means your salary
-              notes and interview feedback never leave your machine, but it also
-              means a cleared browser takes your data with it. Export a backup
-              before switching devices — importing restores everything exactly
-              as it was.
+              Sign-in is local to this browser — there is no server account.
+              Salary notes and interview feedback never leave your machine, but
+              a cleared browser takes your data with it. Export a backup before
+              switching devices — importing restores everything exactly as it
+              was.
             </p>
+          </PanelBody>
+        </Panel>
+
+        <Panel className="lg:col-span-2">
+          <PanelHeader
+            title="Account"
+            description="Sign out of this device. Your data stays in the browser until you delete it."
+          />
+          <PanelBody>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                clearSession();
+                toast("Signed out", "info");
+                router.push("/login");
+              }}
+            >
+              <LogOut size={14} aria-hidden="true" />
+              Sign out
+            </Button>
           </PanelBody>
         </Panel>
       </div>
