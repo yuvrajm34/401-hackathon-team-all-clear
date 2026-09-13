@@ -6,7 +6,6 @@ import { useRef, useState } from "react";
 import { HydrationGate } from "@/components/layout/HydrationGate";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { AtmospherePicker } from "@/components/layout/AtmospherePicker";
-import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { Button } from "@/components/ui/Button";
 import { Field, LabeledInput } from "@/components/ui/Field";
 import { Panel, PanelBody, PanelHeader } from "@/components/ui/Panel";
@@ -87,7 +86,7 @@ function SettingsInner() {
       <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
         <Panel>
           <PanelHeader
-            title="Your details"
+            title="Your Name"
             description="Used for greetings and the follow-up email drafts."
           />
           <PanelBody className="space-y-4">
@@ -101,14 +100,7 @@ function SettingsInner() {
               }
             />
 
-            <Field label="Theme">
-              <ThemeToggle />
-            </Field>
-
-            <Field
-              label="Atmosphere"
-              hint="Backdrop only — type, badges, and match colours stay the same."
-            >
+            <Field label="Atmosphere">
               <AtmospherePicker />
             </Field>
           </PanelBody>

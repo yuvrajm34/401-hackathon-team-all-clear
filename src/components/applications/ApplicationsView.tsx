@@ -121,9 +121,6 @@ function ApplicationsViewInner() {
     <>
       <PageHeader
         title="Applications"
-        description={`${applications.length} tracked · ${
-          applications.filter((a) => a.stage !== "wishlist").length
-        } submitted`}
         actions={
           <>
             <SegmentedControl<ViewMode>

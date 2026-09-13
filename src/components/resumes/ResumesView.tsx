@@ -1,7 +1,8 @@
 "use client";
 
 import {
-  Crown,
+  ChevronDown,
+  Download,
   FileCode2,
   FilePlus2,
   FileText,
@@ -15,7 +16,7 @@ import { useMemo, useState } from "react";
 
 import { HydrationGate } from "@/components/layout/HydrationGate";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { Button, ButtonLink } from "@/components/ui/Button";
+import { Button, ButtonLink, buttonClasses } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Panel, PanelBody, PanelHeader } from "@/components/ui/Panel";
 import { ProgressRing } from "@/components/ui/ProgressRing";
@@ -26,7 +27,8 @@ import { formatDate } from "@/lib/dates";
 import { downloadTextFile, slugify } from "@/lib/download";
 import { buildMatchReport, matchSignal } from "@/lib/keywords";
 import { resumeToLatex } from "@/lib/latex";
-import { diffAgainstMaster, resumeText, visibleResume } from "@/lib/resume";
+import { resumeText } from "@/lib/resume";
+import { downloadResumePdf } from "@/lib/resume-pdf";
 import { computeResumePerformance } from "@/lib/stats";
 import type { Resume } from "@/lib/types";
 import { useAppStore } from "@/store/useAppStore";
@@ -66,7 +68,6 @@ function ResumesViewInner() {
       <>
         <PageHeader
           title="Resumes"
-          description="One master resume, then a tailored copy for each role that deserves one."
         />
         <EmptyState
           icon={<FileText size={20} aria-hidden="true" />}
@@ -105,7 +106,6 @@ function ResumesViewInner() {
     <>
       <PageHeader
         title="Resumes"
-        description="One master resume, then a tailored copy for each role that deserves one."
         actions={
           master ? (
             <div className="flex flex-wrap gap-2">
@@ -134,7 +134,7 @@ function ResumesViewInner() {
 
         <section>
           <h2 className="mb-2 text-sm font-semibold text-ink">
-            Tailored versions
+            Your Tailored Resumes
             <span className="ml-1.5 font-normal text-ink-subtle">
               {tailored.length}
             </span>
@@ -159,10 +159,6 @@ function ResumesViewInner() {
                 <TailoredCard
                   key={resume.id}
                   resume={resume}
-                  master={master}
-                  performance={performance.find(
-                    (entry) => entry.resumeId === resume.id,
-                  )}
                 />
               ))}
             </ul>
@@ -172,7 +168,7 @@ function ResumesViewInner() {
         {performance.length > 1 ? (
           <Panel>
             <PanelHeader
-              title="Which version is working"
+              title="Effective Resumes"
               description="Interview rate per resume, across the applications it was used for."
             />
             <PanelBody className="space-y-2">
@@ -232,7 +228,6 @@ function ResumesViewInner() {
 
 function MasterCard({ resume }: { resume: Resume }) {
   const completeness = computeCompleteness(resume);
-  const visible = visibleResume(resume);
 
   return (
     <Panel className="brand-wash">
@@ -249,52 +244,23 @@ function MasterCard({ resume }: { resume: Resume }) {
         </ProgressRing>
 
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1 rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-medium text-accent">
-              <Crown size={11} aria-hidden="true" />
-              Master
+          <span className="text-[11px] text-ink-subtle">
+            Updated{" "}
+            <span className="font-numeral">
+              {formatDate(resume.updatedAt.slice(0, 10))}
             </span>
-            <span className="text-[11px] text-ink-subtle">
-              Updated{" "}
-              <span className="font-numeral">
-                {formatDate(resume.updatedAt.slice(0, 10))}
-              </span>
-            </span>
-          </div>
+          </span>
 
           <h2 className="mt-1 truncate text-lg font-semibold text-ink">
             {resume.name}
           </h2>
-          <p className="mt-0.5 text-xs text-ink-muted">
-            {resume.profile.fullName || "Add your name"} ·{" "}
-            {visible.experience.length} role
-            {visible.experience.length === 1 ? "" : "s"} ·{" "}
-            {visible.projects.length} project
-            {visible.projects.length === 1 ? "" : "s"} ·{" "}
-            {visible.skills.reduce((total, group) => total + group.skills.length, 0)}{" "}
-            skills
-          </p>
 
           <div className="mt-3 flex flex-wrap gap-2">
             <ButtonLink href={`/resumes/${resume.id}`} size="sm">
               Open editor
             </ButtonLink>
             <UploadResumeButton size="sm" label="Replace from file" />
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => {
-                downloadTextFile(
-                  `${slugify(resume.name)}.tex`,
-                  resumeToLatex(resume),
-                  "application/x-tex;charset=utf-8",
-                );
-                toast("LaTeX file downloaded");
-              }}
-            >
-              <FileCode2 size={14} aria-hidden="true" />
-              .tex
-            </Button>
+            <MasterExportMenu resume={resume} />
           </div>
         </div>
       </PanelBody>
@@ -304,19 +270,14 @@ function MasterCard({ resume }: { resume: Resume }) {
 
 function TailoredCard({
   resume,
-  master,
-  performance,
 }: {
   resume: Resume;
-  master: Resume | undefined;
-  performance?: { used: number; interviews: number };
 }) {
   const applications = useAppStore((state) => state.applications);
   const application = applications.find(
     (item) => item.id === resume.targetApplicationId,
   );
 
-  const diff = master ? diffAgainstMaster(resume, master) : null;
   const match = application?.jobDescription
     ? buildMatchReport(application.jobDescription, resumeText(resume))
     : null;
@@ -357,17 +318,6 @@ function TailoredCard({
           </span>
         ) : null}
 
-        {diff ? (
-          <span className="text-[11px] text-ink-muted">
-            {diff.totalChanges} edit{diff.totalChanges === 1 ? "" : "s"}
-          </span>
-        ) : null}
-
-        {performance && performance.used > 0 ? (
-          <span className="text-[11px] text-ink-muted">
-            {performance.interviews} of {performance.used} interviews
-          </span>
-        ) : null}
       </div>
 
       <div className="mt-3 flex gap-1.5 pt-1">
@@ -397,6 +347,58 @@ function TailoredCard({
         </Button>
       </div>
     </li>
+  );
+}
+
+function MasterExportMenu({ resume }: { resume: Resume }) {
+  const closeMenu = (target: HTMLElement) => {
+    target.closest("details")?.removeAttribute("open");
+  };
+
+  return (
+    <details className="relative">
+      <summary
+        className={buttonClasses({
+          variant: "secondary",
+          size: "sm",
+          className: "cursor-pointer list-none [&::-webkit-details-marker]:hidden",
+        })}
+      >
+        <Download size={14} aria-hidden="true" />
+        Export
+        <ChevronDown size={13} aria-hidden="true" />
+      </summary>
+      <div className="absolute right-0 z-20 mt-1 min-w-32 rounded-xl bg-surface-raised p-1 shadow-raised">
+        <button
+          type="button"
+          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-ink hover:bg-surface-muted"
+          onClick={(event) => {
+            downloadResumePdf(resume);
+            toast("Resume PDF downloaded");
+            closeMenu(event.currentTarget);
+          }}
+        >
+          <FileText size={14} aria-hidden="true" />
+          Export .pdf
+        </button>
+        <button
+          type="button"
+          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-ink hover:bg-surface-muted"
+          onClick={(event) => {
+            downloadTextFile(
+              `${slugify(resume.name)}.tex`,
+              resumeToLatex(resume),
+              "application/x-tex;charset=utf-8",
+            );
+            toast("LaTeX file downloaded");
+            closeMenu(event.currentTarget);
+          }}
+        >
+          <FileCode2 size={14} aria-hidden="true" />
+          Export .tex
+        </button>
+      </div>
+    </details>
   );
 }
 

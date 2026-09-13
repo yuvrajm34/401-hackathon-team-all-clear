@@ -44,7 +44,12 @@ const NAV: NavItem[] = [
     shortLabel: "Cal",
     icon: CalendarDays,
   },
-  { href: "/discover", label: "Discover", shortLabel: "Find", icon: Compass },
+  {
+    href: "/discover",
+    label: "Discover Jobs",
+    shortLabel: "Find",
+    icon: Compass,
+  },
   { href: "/resumes", label: "Resumes", shortLabel: "Resumes", icon: FileText },
   { href: "/settings", label: "Settings", shortLabel: "Settings", icon: Settings },
 ];
