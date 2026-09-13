@@ -1,4 +1,12 @@
-export type ResumeKind = "pdf" | "docx" | "rtf" | "tex" | "text" | "doc" | "unknown";
+export type ResumeKind =
+  | "pdf"
+  | "docx"
+  | "zip"
+  | "rtf"
+  | "tex"
+  | "text"
+  | "doc"
+  | "unknown";
 
 export function sniffResumeKind(name: string, bytes: Uint8Array): ResumeKind {
   const lower = name.toLowerCase();
@@ -19,8 +27,10 @@ export function sniffResumeKind(name: string, bytes: Uint8Array): ResumeKind {
     isZip ||
     lower.endsWith(".docx") ||
     lower.endsWith(".dotx") ||
-    lower.endsWith(".docm")
+    lower.endsWith(".docm") ||
+    lower.endsWith(".zip")
   ) {
+    if (isZip && !zipPeekLooksLikeDocx(bytes)) return "zip";
     return "docx";
   }
 
@@ -62,3 +72,9 @@ export function looksLikeText(bytes: Uint8Array): boolean {
 }
 
 export const TEXT_DECODER = new TextDecoder();
+
+/** Word files are zips that contain `[Content_Types].xml`. Overleaf source is not. */
+function zipPeekLooksLikeDocx(bytes: Uint8Array): boolean {
+  const peek = TEXT_DECODER.decode(bytes.subarray(0, 8192));
+  return /\[Content_Types\]\.xml|word\/document\.xml/.test(peek);
+}

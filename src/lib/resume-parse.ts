@@ -191,21 +191,16 @@ function looksLikeBareLocation(line: string): boolean {
 
 const DATE_TOKEN =
   "(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?|[0-3]?\\d)(?:[./\\s-]\\d{2,4})?|\\d{4}";
+// Separator between the two ends of a date range — either a dash of some
+// kind or the literal word "to" ("Jan 2024 to Present"), which is at least
+// as common on real resumes as an en/em dash.
+const DATE_SEP = "(?:[–—-]+|to)";
 const DATE_RANGE_RE = new RegExp(
-  `^(${DATE_TOKEN})\\s*[–—\\-–to]+\\s*(${DATE_TOKEN}|Present|Current|Now|Ongoing)$`,
+  `^(${DATE_TOKEN})\\s*${DATE_SEP}\\s*(${DATE_TOKEN}|Present|Current|Now|Ongoing)$`,
   "i",
 );
-/**
- * Same date range, but anchored only at the end — for templates that stack
- * a job's header across three lines instead of one ("Company Name  Jan
- * 2024 to Present" / "Job Title" / "City, ST"). `DATE_RANGE_RE` requires
- * the *whole* line to be the date, which never matches when the company
- * name and date share a line; without recognizing that shape, the whole
- * messy line becomes the "role" and the real title on the next line gets
- * silently discarded as unrecognized leftover text.
- */
-const TRAILING_DATE_RANGE_RE = new RegExp(
-  `(${DATE_TOKEN})\\s*[–—\\-–to]+\\s*(${DATE_TOKEN}|Present|Current|Now|Ongoing)\\s*$`,
+const TRAILING_DATE_RE = new RegExp(
+  `\\s+(?:(Expected\\s+.+)|(?:(${DATE_TOKEN})\\s*${DATE_SEP}\\s*(${DATE_TOKEN}|Present|Current|Now|Ongoing)))$`,
   "i",
 );
 
@@ -218,7 +213,12 @@ const BULLET_RE = /^(?:[-*•·‒–—]|\d+[.)])\s+/;
 export function classifyLink(label: string, url = ""): ParsedLinkKind {
   const hay = `${label} ${url}`.toLowerCase();
   if (/linked\s*in/.test(hay) || /linkedin\.com/.test(hay)) return "linkedin";
-  if (/github/.test(hay) || /github\.com/.test(hay)) return "github";
+  if (/github/.test(hay) || /github\.com/.test(hay)) {
+    const parts = normalizeLinkUrl(url).split("/").filter(Boolean);
+    // github.com/user is a profile; github.com/org/repo belongs on a project.
+    if (parts.length > 2) return "other";
+    return "github";
+  }
   if (/gitlab/.test(hay) || /gitlab\.com/.test(hay)) return "gitlab";
   if (
     /portfolio|personal site|website|homepage/.test(hay) ||
@@ -295,6 +295,8 @@ export function parseResumeText(raw: string, hint: ParseHint = {}): ParsedResume
     const fromSchool = parsed.education.find((item) => item.location.trim());
     if (fromSchool) parsed.profile.location = fromSchool.location.trim();
   }
+
+  attachProjectLinks(parsed.projects, parsed.profile.links);
 
   return parsed;
 }
@@ -678,25 +680,20 @@ function sectionOf(line: string): SectionKey | "ignore" | null {
 /**
  * Handles a job header stacked across three lines instead of one —
  * "Company Name  Jan 2024 to Present" / "Job Title" / "City, ST" — rather
- * than the usual single "Role — Company, Location" line. Detected by a
- * date range embedded at the *end* of the title line (`DATE_RANGE_RE`
- * alone requires the whole line to be the date, which never matches when
- * the company name and dates share a line). Without this, the entire
- * messy first line becomes the "role" and the real title on the next line
- * is silently dropped as unrecognized leftover text.
+ * than the usual single "Role — Company, Location" line. `splitRoleCompany`
+ * has no separator to work with here (no "—"/"|"/"at"), so it dumps the
+ * whole line into "role" with an empty "company" — the caller detects that
+ * shape (a trailing date but no company found) and hands off here so the
+ * real title on the next line isn't silently dropped as leftover text.
  */
 function parseStackedHeader(
-  title: string,
+  company: string,
   rest: string[],
+  start: string,
+  end: string,
 ): ParsedExperience | null {
-  const dateMatch = TRAILING_DATE_RANGE_RE.exec(title);
-  if (!dateMatch || dateMatch.index === undefined) return null;
-
-  const company = title
-    .slice(0, dateMatch.index)
-    .trim()
-    .replace(/[\s,—–|-]+$/, "");
-  if (!company) return null;
+  const cleanedCompany = company.trim().replace(/[\s,—–|-]+$/, "");
+  if (!cleanedCompany) return null;
 
   let remaining = [...rest];
 
@@ -719,17 +716,13 @@ function parseStackedHeader(
     remaining = remaining.filter((line) => line !== locationLine);
   }
 
-  const bullets = remaining.filter(
-    (line) => BULLET_RE.test(line) || line.length > 40,
-  );
-
   return {
     role,
-    company,
+    company: cleanedCompany,
     location,
-    start: dateMatch[1]?.trim() ?? "",
-    end: dateMatch[2]?.trim() ?? "",
-    bullets: bullets.map(stripBullet),
+    start,
+    end,
+    bullets: mergeWrappedBullets(remaining),
   };
 }
 
@@ -738,22 +731,24 @@ function parseExperience(lines: string[]): ParsedExperience[] {
     const chunk = dropLeadingNameLine(rawChunk);
     const { title, rest } = peelTitle(chunk);
     if (!title) return [];
-
-    const stacked = parseStackedHeader(title, rest);
-    if (stacked) return [stacked];
-
-    const { role, company, location } = splitRoleCompany(title);
+    const dated = peelInlineDate(title);
+    const { role, company, location } = splitRoleCompany(dated.text);
     if (!role && !company) return [];
+
+    if (dated.start && !company) {
+      const stacked = parseStackedHeader(role, rest, dated.start, dated.end);
+      if (stacked) return [stacked];
+    }
+
     const { start, end, leftover } = peelDates(rest);
-    const bullets = leftover.filter((line) => BULLET_RE.test(line) || line.length > 40);
     return [
       {
         role,
         company,
         location,
-        start,
-        end,
-        bullets: bullets.map(stripBullet),
+        start: start || dated.start,
+        end: end || dated.end,
+        bullets: mergeWrappedBullets(leftover),
       },
     ];
   });
@@ -767,31 +762,42 @@ function parseEducation(lines: string[]): ParsedEducation[] {
     const { heading, location: trailingLocation } = peelTrailingLocation(title);
     const { role: degree, company: school, location } = splitRoleCompany(heading);
     const { start, end, leftover } = peelDates(rest);
-    const expected = leftover.find((line) => /^expected\b/i.test(line.trim()));
+    const datedLeftover = leftover.map((line) => peelInlineDate(line));
+    const expected = datedLeftover.find((item) => /^expected\b/i.test(item.start));
+    const degreeFromBody = datedLeftover
+      .map((item) => item.text)
+      .filter(Boolean)
+      .join(" ");
+    const schoolName = school || degree;
+    const degreeName = school ? degree : degreeFromBody;
     return [
       {
-        school: school || degree,
-        degree: school ? degree : "",
+        school: schoolName,
+        degree: degreeName,
         location: location || trailingLocation,
-        start: start || (expected ? expected.trim() : ""),
+        start: start || expected?.start || datedLeftover.find((item) => item.start)?.start || "",
         end,
-        details: leftover
-          .filter((line) => line !== expected)
-          .map(stripBullet)
-          .join(" "),
+        details: school && degreeFromBody && degreeFromBody !== degree ? degreeFromBody : "",
       },
     ];
   });
 }
 
 function peelTrailingLocation(title: string): { heading: string; location: string } {
+  const trailing = title.match(
+    /^(?:(.*\S)\s+)?((?:(?:New|San|Los|Fort|Saint|North|South|West|East)\s+)?[A-Z][a-zA-Z.'-]+,\s*[A-Z]{2})\s*$/,
+  );
+  if (trailing?.[2]) {
+    return {
+      heading: (trailing[1] ?? "").trim(),
+      location: trailing[2].trim(),
+    };
+  }
   const match = LOCATION_RE.exec(title);
   if (!match || match.index === undefined || match.index === 0) {
     return { heading: title, location: "" };
   }
   return {
-    // Strip the separator ("Northeastern University — Boston, MA" should
-    // leave "Northeastern University", not "Northeastern University —").
     heading: title
       .slice(0, match.index)
       .replace(/[\s,—–|-]+$/, "")
@@ -804,8 +810,7 @@ function parseProjects(lines: string[]): ParsedProject[] {
   return chunkEntries(lines, { detectRunOn: true }).flatMap((chunk) => {
     const { title, rest } = peelTitle(chunk);
     if (!title) return [];
-    const techMatch = title.match(/^(.*?)\s*\((.+)\)\s*$/);
-    const name = (techMatch?.[1] ?? title).trim();
+    const dated = peelInlineDate(title);
     const linkLine = rest.find((line) => URL_RE.test(line) && !BULLET_RE.test(line));
     const techLine = rest.find(
       (line) =>
@@ -814,15 +819,15 @@ function parseProjects(lines: string[]): ParsedProject[] {
         /[·•]/.test(line) &&
         line.length < 220,
     );
-    const tech =
-      techMatch?.[2]?.trim() ||
-      (techLine
-        ? techLine
-            .split(/[·•]/)
-            .map((part) => part.trim())
-            .filter(Boolean)
-            .join(", ")
-        : "");
+    const techMatch = dated.text.match(/^(.*?)\s*\((.+)\)\s*$/);
+    const name = (techLine ? dated.text : (techMatch?.[1] ?? dated.text)).trim();
+    const tech = techLine
+      ? techLine
+          .split(/[·•]/)
+          .map((part) => part.trim())
+          .filter(Boolean)
+          .join(", ")
+      : (techMatch?.[2]?.trim() ?? "");
     const { start, end, leftover } = peelDates(
       rest.filter((line) => line !== linkLine && line !== techLine),
     );
@@ -831,11 +836,9 @@ function parseProjects(lines: string[]): ParsedProject[] {
         name,
         tech,
         link: linkLine ? normalizeLinkUrl(firstMatch(linkLine, URL_RE) ?? linkLine) : "",
-        start,
-        end,
-        bullets: leftover
-          .filter((line) => BULLET_RE.test(line) || line.length > 40)
-          .map(stripBullet),
+        start: start || dated.start,
+        end: end || dated.end,
+        bullets: mergeWrappedBullets(leftover),
       },
     ];
   });
@@ -843,7 +846,12 @@ function parseProjects(lines: string[]): ParsedProject[] {
 
 function parseSkills(lines: string[]): ParsedSkillGroup[] {
   const groups: ParsedSkillGroup[] = [];
-  for (const line of lines.map((item) => item.trim()).filter(Boolean)) {
+  for (const raw of lines.map((item) => item.trim()).filter(Boolean)) {
+    // Bulleted skill-group labels ("• Programming Languages: Java, Python")
+    // need the bullet stripped first — otherwise it becomes part of the
+    // captured label ("• Programming Languages" instead of "Programming
+    // Languages") since the label pattern itself has no bullet awareness.
+    const line = stripBullet(raw);
     const labeled = line.match(/^([^:]{1,40}):\s*(.+)$/);
     if (labeled) {
       const skills = splitSkills(labeled[2]);
@@ -853,7 +861,7 @@ function parseSkills(lines: string[]): ParsedSkillGroup[] {
     const skills = splitSkills(line);
     if (skills.length) {
       const last = groups.at(-1);
-      if (last && last.label === "Skills") last.skills.push(...skills);
+      if (last) last.skills.push(...skills);
       else groups.push({ label: "Skills", skills });
     }
   }
@@ -862,9 +870,9 @@ function parseSkills(lines: string[]): ParsedSkillGroup[] {
 
 function splitSkills(line: string): string[] {
   return line
-    .split(/[,|•·;/]/)
-    .map((skill) => skill.trim())
-    .filter((skill) => skill.length > 1 && skill.length < 40);
+    .split(/[,;|•·]/)
+    .map((skill) => skill.replace(/\s+/g, " ").trim())
+    .filter((skill) => skill.length > 0 && skill.length < 48);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -901,8 +909,8 @@ function chunkEntries(
   };
 
   for (const raw of lines) {
-    const line = raw.trimEnd();
-    if (!line.trim()) {
+    const line = raw.trim();
+    if (!line) {
       flush();
       continue;
     }
@@ -914,7 +922,7 @@ function chunkEntries(
       current.length > 0 &&
       !isBullet &&
       !DATE_RANGE_RE.test(trimmed) &&
-      looksLikeNewEntryTitle(trimmed)
+      (looksLikeNewEntryTitle(trimmed) || looksLikeEntryHeading(trimmed))
     ) {
       flush();
     }
@@ -923,6 +931,91 @@ function chunkEntries(
   }
   flush();
   return chunks;
+}
+
+/**
+ * A line that reads as a new entry's heading (has its own trailing date,
+ * e.g. "Acme Corp  Jan 2024 – Present") rather than a wrapped bullet
+ * continuation. Deliberately narrow — an earlier, broader version also
+ * matched any short capitalized sentence with no colon, which reintroduced
+ * exactly the bug `looksLikeNewEntryTitle`'s docstring warns about: an
+ * ordinary bullet that wraps onto a second line often *also* looks like
+ * "a short capitalized sentence", so that rule was splitting single roles
+ * into bogus fragmented entries. A trailing date is a much rarer, safer
+ * signal to anchor on.
+ */
+function looksLikeEntryHeading(line: string): boolean {
+  if (BULLET_RE.test(line) || looksLikeTechLine(line)) return false;
+  return TRAILING_DATE_RE.test(line);
+}
+
+function looksLikeTechLine(line: string): boolean {
+  return /[·]/.test(line) && !BULLET_RE.test(line) && line.length < 220;
+}
+
+function peelInlineDate(line: string): { text: string; start: string; end: string } {
+  if (/^expected\b/i.test(line.trim())) {
+    return { text: "", start: line.trim(), end: "" };
+  }
+  const expected = line.match(/\s+(Expected\s+.+)$/i);
+  if (expected && expected.index !== undefined) {
+    return {
+      text: line.slice(0, expected.index).trim(),
+      start: expected[1].trim(),
+      end: "",
+    };
+  }
+  const range = TRAILING_DATE_RE.exec(line);
+  if (range && range.index !== undefined && range.index > 0) {
+    return {
+      text: line.slice(0, range.index).trim(),
+      start: (range[2] ?? range[1] ?? "").trim(),
+      end: (range[3] ?? "").trim(),
+    };
+  }
+  return { text: line.trim(), start: "", end: "" };
+}
+
+function mergeWrappedBullets(lines: string[]): string[] {
+  const bullets: string[] = [];
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line || looksLikeTechLine(line)) continue;
+    if (BULLET_RE.test(line)) {
+      bullets.push(cleanPlain(stripBullet(line)));
+      continue;
+    }
+    if (bullets.length) {
+      bullets[bullets.length - 1] = cleanPlain(`${bullets[bullets.length - 1]} ${line}`);
+    } else if (line.length > 40) {
+      bullets.push(cleanPlain(line));
+    }
+  }
+  return bullets;
+}
+
+function cleanPlain(text: string): string {
+  return text.replace(/˜/g, "~").replace(/\s+/g, " ").trim();
+}
+
+function attachProjectLinks(projects: ParsedProject[], links: ParsedLink[]) {
+  const leftover: ParsedLink[] = [];
+  for (const link of links) {
+    if (classifyLink(link.label, link.url) !== "other" || !link.url) {
+      leftover.push(link);
+      continue;
+    }
+    const url = link.url.toLowerCase();
+    const project = projects.find((item) => {
+      if (item.link) return false;
+      const tokens = item.name.toLowerCase().split(/[^a-z0-9]+/).filter((part) => part.length > 4);
+      return tokens.some((token) => url.includes(token));
+    });
+    if (project) project.link = link.url;
+    else leftover.push(link);
+  }
+  links.length = 0;
+  links.push(...leftover);
 }
 
 /**

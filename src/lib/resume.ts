@@ -370,8 +370,21 @@ export function estimateLineCount(resume: Resume): number {
 }
 
 export function dateRangeLabel(start: string, end: string): string {
-  if (start && end) return `${start} – ${end}`;
-  return start || end || "";
+  const left = tidyDatePart(start);
+  const right = tidyDatePart(end);
+  if (left && right) return `${left} – ${right}`;
+  return left || right || "";
+}
+
+/** Keeps "May 2025" readable when a parse glued the month to the year. */
+function tidyDatePart(value: string): string {
+  return value
+    .replace(/\s+/g, " ")
+    .replace(
+      /\b(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)[.\-/ ]*(\d{4})\b/gi,
+      "$1 $2",
+    )
+    .trim();
 }
 
 /**

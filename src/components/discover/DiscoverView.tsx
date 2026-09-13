@@ -9,6 +9,7 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { HydrationGate, Skeleton } from "@/components/layout/HydrationGate";
@@ -27,6 +28,7 @@ import { buildMatchReport } from "@/lib/keywords";
 import { resumeText } from "@/lib/resume";
 import { selectMasterResume, useAppStore } from "@/store/useAppStore";
 
+import { DiscoverResumeDock } from "./DiscoverResumeDock";
 import { JobCard } from "./JobCard";
 
 type SortMode = "newest" | "match";
@@ -52,9 +54,12 @@ function useDebounced<T>(value: T, delay: number): T {
 }
 
 function DiscoverViewInner() {
+  const router = useRouter();
   const applications = useAppStore((state) => state.applications);
+  const resumes = useAppStore((state) => state.resumes);
   const master = useAppStore(selectMasterResume);
   const importJobListing = useAppStore((state) => state.importJobListing);
+  const tailorResume = useAppStore((state) => state.tailorResume);
 
   const [query, setQuery] = useState("");
   const [company, setCompany] = useState("all");
@@ -66,6 +71,7 @@ function DiscoverViewInner() {
   // choice afterward isn't overridden.
   const [sort, setSort] = useState<SortMode>(() => (master ? "match" : "newest"));
   const [page, setPage] = useState(1);
+  const [resumeListing, setResumeListing] = useState<JobListing | null>(null);
 
   /** Bumped to re-run the search when nothing about the filters changed. */
   const [retry, setRetry] = useState(0);
@@ -165,11 +171,91 @@ function DiscoverViewInner() {
     return scored;
   }, [data, masterText, sort]);
 
+  /** Ensures a listing has a tracked application, then opens the same
+   * detail page an application gets from the Applications list — importing
+   * it first if this is the first time it's been opened from here. */
+  const handleOpenApplication = (listing: JobListing) => {
+    const target = normalizeUrl(listing.url);
+    const existing = applications.find(
+      (application) =>
+        application.url && normalizeUrl(application.url) === target,
+    );
+    const applicationId = existing?.id ?? importJobListing(listing);
+    if (!applicationId) return;
+    router.push(`/applications/${applicationId}`);
+  };
+
   const handleAdd = (listing: JobListing) => {
     if (importJobListing(listing)) {
       toast(`${listing.position} at ${listing.company} added to your wishlist`);
     } else {
       toast("That posting is already in your pipeline", "info");
+    }
+  };
+
+  const tailoredByUrl = useMemo(() => {
+    const urls = new Set<string>();
+    for (const application of applications) {
+      if (!application.url || !application.resumeId) continue;
+      const resume = resumes.find((item) => item.id === application.resumeId);
+      if (resume && !resume.isMaster) {
+        urls.add(normalizeUrl(application.url));
+      }
+    }
+    for (const resume of resumes) {
+      if (resume.isMaster || !resume.targetApplicationId) continue;
+      const application = applications.find(
+        (item) => item.id === resume.targetApplicationId,
+      );
+      if (application?.url) urls.add(normalizeUrl(application.url));
+    }
+    return urls;
+  }, [applications, resumes]);
+
+  const handleOpenResume = (listing: JobListing) => {
+    setResumeListing(listing);
+    if (!master) return;
+
+    const target = normalizeUrl(listing.url);
+    const existing = applications.find(
+      (application) =>
+        application.url && normalizeUrl(application.url) === target,
+    );
+    const applicationId = existing?.id ?? importJobListing(listing);
+    const application =
+      existing ??
+      (applicationId
+        ? useAppStore
+            .getState()
+            .applications.find((item) => item.id === applicationId)
+        : undefined);
+
+    if (!application) return;
+
+    const alreadyTailored =
+      (application.resumeId &&
+        resumes.some(
+          (resume) => resume.id === application.resumeId && !resume.isMaster,
+        )) ||
+      resumes.some(
+        (resume) =>
+          resume.targetApplicationId === application.id && !resume.isMaster,
+      );
+
+    if (alreadyTailored) return;
+
+    const created = tailorResume({
+      masterId: master.id,
+      applicationId: application.id,
+      name: `${listing.company} — ${listing.position}`,
+    });
+
+    if (created) {
+      toast(
+        existing
+          ? `Started a tailored resume for ${listing.company}`
+          : `Saved to wishlist and started a tailored resume`,
+      );
     }
   };
 
@@ -358,10 +444,20 @@ function DiscoverViewInner() {
                 listing={listing}
                 score={score}
                 tracked={trackedUrls.has(normalizeUrl(listing.url))}
+                hasMaster={Boolean(master)}
+                hasTailored={tailoredByUrl.has(normalizeUrl(listing.url))}
+                onOpen={() => handleOpenApplication(listing)}
                 onAdd={() => handleAdd(listing)}
+                onOpenResume={() => handleOpenResume(listing)}
               />
             ))}
           </div>
+
+          <DiscoverResumeDock
+            listing={resumeListing}
+            open={resumeListing !== null}
+            onClose={() => setResumeListing(null)}
+          />
 
           {totalPages > 1 ? (
             <nav

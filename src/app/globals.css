@@ -204,7 +204,8 @@
 --------------------------------------------------------------------------- */
 @media print {
   @page {
-    margin: 0.5in;
+    size: letter;
+    margin: 0.6in;
   }
 
   html,
@@ -239,6 +240,13 @@
     overflow: visible !important;
     height: auto !important;
     max-height: none !important;
+    padding: 0 !important;
+  }
+
+  /* The editor is a 2-column grid on desktop. If that grid stays on for
+     print, the sheet is squeezed into half a page and headings wrap. */
+  .print-resume-grid {
+    display: block !important;
   }
 
   /* Explicit opt in/out beats whatever responsive utility is on the element,
@@ -252,5 +260,6 @@
     position: static !important;
     overflow: visible !important;
     max-height: none !important;
+    width: 100% !important;
   }
 }

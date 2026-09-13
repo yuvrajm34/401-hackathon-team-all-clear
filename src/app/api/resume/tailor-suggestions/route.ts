@@ -1,25 +1,31 @@
 /**
  * Compares a resume against a job description and asks a local Ollama
- * model for concrete edits to make before applying. Complements the
- * keyword-match panel (which just flags missing terms) with actual
- * rewrite/emphasis suggestions.
+ * model for concrete edits to make before applying — genuine, specific
+ * suggestions instead of a naive keyword-frequency diff (which used to
+ * surface generic posting language as "missing skills" to bolt onto the
+ * resume verbatim).
+ *
+ * Streams the model's output line by line rather than waiting for the full
+ * generation to finish, so the first suggestion shows up in a couple of
+ * seconds instead of the UI sitting on a spinner for the entire 10-20+
+ * second pass — see `ollamaStreamLines` in lib/ollama.ts.
  */
-import { ollamaJson, OllamaError } from "@/lib/ollama";
+import { ollamaStreamLines, OllamaError } from "@/lib/ollama";
 
 export const runtime = "nodejs";
 
-const SYSTEM_PROMPT = `You are a resume tailoring assistant. Compare the resume text against the job description and return ONLY a JSON object of this shape, no commentary:
+const SYSTEM_PROMPT = `You are a resume tailoring assistant comparing a resume against a job description.
 
-{ "suggestions": string[] }
+Output ONE suggestion per line and nothing else — no numbering, no markdown, no preamble, no closing remarks. Every line must start with exactly one of these two tags:
+REFRAME: <suggestion>
+GAP: <suggestion>
 
 Rules:
-- Each suggestion is one concrete, actionable edit — not general advice. Reference the actual resume content and actual posting requirements.
-- There are two kinds of suggestions — phrase each one so it's unmistakable which kind it is:
-  1. Reframing something that's already there, e.g. "Rewrite the ApplyPath bullet to lead with the outcome ('used by 6 people') instead of the task", or "Emphasize the REST API work in the Weather Dashboard project — the posting highlights API design and this project already does it."
-  2. Flagging a gap — a posting requirement the resume never mentions. Phrase these as a flag to the candidate, NOT as an instruction to add a bullet: "Gap: the posting asks for Docker experience, which isn't in the resume. Only add it if you've actually used Docker — don't fabricate it." Never phrase a gap as "Add a bullet about X" — that reads as an instruction to invent experience.
-- Never suggest adding any tool, metric, or claim the resume doesn't already support, even indirectly. Reframing existing content is always safe; filling a gap is only ever a flag, never an instruction to add something new.
-- Return at most 8 suggestions, ordered by impact.
-- If the resume already covers the posting well, it's fine to return fewer suggestions, or an empty array.`;
+- REFRAME points at something already on the resume and says how to present it better for this posting, e.g. "REFRAME: Lead the ApplyPath bullet with the outcome ('used by 6 people') instead of the task." or "REFRAME: Emphasize the REST API work in the Weather Dashboard project — the posting highlights API design and this project already does it."
+- GAP flags a posting requirement the resume never mentions. Phrase it as a flag to the candidate, never as an instruction to fabricate: "GAP: The posting asks for Docker experience, which isn't in the resume. Only add it if you've actually used Docker — don't invent it."
+- Never suggest adding any tool, metric, or claim the resume doesn't already support, even indirectly. Reframing existing content is always safe; a gap is only ever a flag, never an instruction to add something new.
+- Reference actual resume content and actual posting requirements — no generic advice like "tailor your resume" or "use keywords."
+- At most 8 lines total, most impactful first. If the resume already covers the posting well, output fewer lines, or none at all.`;
 
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as {
@@ -37,26 +43,44 @@ export async function POST(request: Request) {
     );
   }
 
-  try {
-    const result = await ollamaJson<{ suggestions?: unknown }>({
-      system: SYSTEM_PROMPT,
-      prompt: [
-        "RESUME:",
-        resumeText.slice(0, 8_000),
-        "",
-        "JOB DESCRIPTION:",
-        jobDescription.slice(0, 6_000),
-      ].join("\n"),
-    });
+  const prompt = [
+    "RESUME:",
+    resumeText.slice(0, 6_000),
+    "",
+    "JOB DESCRIPTION:",
+    jobDescription.slice(0, 4_000),
+  ].join("\n");
 
-    const suggestions = Array.isArray(result.suggestions)
-      ? result.suggestions.filter((s): s is string => typeof s === "string" && s.trim().length > 0)
-      : [];
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      try {
+        for await (const line of ollamaStreamLines({
+          system: SYSTEM_PROMPT,
+          prompt,
+          numPredict: 500,
+        })) {
+          const tagged = line.match(/^(REFRAME|GAP):\s*(.+)$/i);
+          const text = (tagged?.[2] ?? line).trim();
+          if (!text) continue;
+          controller.enqueue(encoder.encode(`${text}\n`));
+        }
+      } catch (caught) {
+        const message =
+          caught instanceof OllamaError
+            ? caught.message
+            : "Could not generate suggestions.";
+        // No headers/status left to set once the stream has started — the
+        // client recognizes this sentinel line and surfaces it as an error
+        // instead of a suggestion.
+        controller.enqueue(encoder.encode(`__ERROR__:${message}\n`));
+      } finally {
+        controller.close();
+      }
+    },
+  });
 
-    return Response.json({ suggestions });
-  } catch (caught) {
-    const message =
-      caught instanceof OllamaError ? caught.message : "Could not generate suggestions.";
-    return Response.json({ error: message }, { status: 502 });
-  }
+  return new Response(stream, {
+    headers: { "Content-Type": "text/plain; charset=utf-8" },
+  });
 }

@@ -2,7 +2,7 @@
 
 import { Briefcase, Code2, Globe, Link2, Plus, Trash2 } from "lucide-react";
 
-import { Field, LabeledInput, TextInput } from "@/components/ui/Field";
+import { Field, LabeledInput } from "@/components/ui/Field";
 import { createId } from "@/lib/ids";
 import type { Resume } from "@/lib/types";
 import { useAppStore } from "@/store/useAppStore";
@@ -75,50 +75,58 @@ export function ProfileEditor({ resume }: { resume: Resume }) {
 
       <Field
         label="Links"
-        hint="Leave a URL blank to keep the row without printing it."
+        hint="The name is what prints, underlined. The URL is what opens when someone clicks it."
         className="pt-1"
       >
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           {profile.links.map((link, index) => {
             const Icon = iconFor(link.label);
             return (
-              <div key={link.id} className="flex items-center gap-1.5">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-line bg-surface text-ink-subtle">
-                  <Icon size={14} aria-hidden="true" />
-                </span>
-                <TextInput
-                  value={link.label}
-                  aria-label={`Link ${index + 1} label`}
-                  placeholder="LinkedIn"
-                  className="w-28 shrink-0"
-                  onChange={(event) =>
-                    updateResume(resume.id, (draft) => {
-                      draft.profile.links[index].label = event.target.value;
-                    })
-                  }
-                />
-                <TextInput
-                  value={link.url}
-                  aria-label={`Link ${index + 1} URL`}
-                  inputMode="url"
-                  placeholder="linkedin.com/in/you"
-                  onChange={(event) =>
-                    updateResume(resume.id, (draft) => {
-                      draft.profile.links[index].url = event.target.value;
-                    })
-                  }
-                />
-                <IconAction
-                  label={`Remove the ${link.label || "link"} row`}
-                  danger
-                  onClick={() =>
-                    updateResume(resume.id, (draft) => {
-                      draft.profile.links.splice(index, 1);
-                    })
-                  }
-                >
-                  <Trash2 size={13} aria-hidden="true" />
-                </IconAction>
+              <div
+                key={link.id}
+                className="rounded-lg border border-line bg-surface p-2.5"
+              >
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-ink-muted">
+                    <Icon size={13} aria-hidden="true" />
+                    {link.label.trim() || `Link ${index + 1}`}
+                  </span>
+                  <IconAction
+                    label={`Remove the ${link.label || "link"} row`}
+                    danger
+                    onClick={() =>
+                      updateResume(resume.id, (draft) => {
+                        draft.profile.links.splice(index, 1);
+                      })
+                    }
+                  >
+                    <Trash2 size={13} aria-hidden="true" />
+                  </IconAction>
+                </div>
+                <div className="grid gap-2">
+                  <LabeledInput
+                    label="Name on resume"
+                    value={link.label}
+                    placeholder="LinkedIn"
+                    onChange={(event) =>
+                      updateResume(resume.id, (draft) => {
+                        draft.profile.links[index].label = event.target.value;
+                      })
+                    }
+                  />
+                  <LabeledInput
+                    label="URL"
+                    value={link.url}
+                    inputMode="url"
+                    autoComplete="url"
+                    placeholder="https://linkedin.com/in/you"
+                    onChange={(event) =>
+                      updateResume(resume.id, (draft) => {
+                        draft.profile.links[index].url = event.target.value;
+                      })
+                    }
+                  />
+                </div>
               </div>
             );
           })}

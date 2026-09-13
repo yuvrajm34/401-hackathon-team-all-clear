@@ -21,15 +21,15 @@ import {
   Copy,
   Crown,
   Eye,
+  Download,
   FileCode2,
   Pencil,
-  Printer,
   Trash2,
   Wand2,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { MatchSummaryLink } from "@/components/applications/MatchPanel";
 import { HydrationGate } from "@/components/layout/HydrationGate";
@@ -47,6 +47,7 @@ import {
   estimateLineCount,
   getSectionOrder,
 } from "@/lib/resume";
+import { downloadResumePdf } from "@/lib/resume-pdf";
 import type { ResumeSectionKey } from "@/lib/types";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -103,6 +104,24 @@ function ResumeDetailInner({ id }: { id: string }) {
     if (!resume || resume.isMaster) return emptyDiff();
     return diffAgainstMaster(resume, master);
   }, [resume, master]);
+
+  useEffect(() => {
+    if (!resume) return;
+    const previous = document.title;
+    const onBeforePrint = () => {
+      document.title = resume.profile.fullName || resume.name;
+    };
+    const onAfterPrint = () => {
+      document.title = previous;
+    };
+    window.addEventListener("beforeprint", onBeforePrint);
+    window.addEventListener("afterprint", onAfterPrint);
+    return () => {
+      window.removeEventListener("beforeprint", onBeforePrint);
+      window.removeEventListener("afterprint", onAfterPrint);
+      document.title = previous;
+    };
+  }, [resume]);
 
   if (!resume) {
     return (
@@ -265,9 +284,14 @@ function ResumeDetailInner({ id }: { id: string }) {
               </>
             ) : null}
 
-            <Button onClick={() => window.print()}>
-              <Printer size={14} aria-hidden="true" />
-              Print / PDF
+            <Button
+              onClick={() => {
+                downloadResumePdf(resume);
+                toast("Resume PDF downloaded");
+              }}
+            >
+              <Download size={14} aria-hidden="true" />
+              Download PDF
             </Button>
           </div>
         </div>
@@ -339,7 +363,7 @@ function ResumeDetailInner({ id }: { id: string }) {
         </div>
       </header>
 
-      <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
+      <div className="print-resume-grid grid gap-4 lg:grid-cols-2 lg:items-start">
         <div
           data-print="hide"
           className={cn(

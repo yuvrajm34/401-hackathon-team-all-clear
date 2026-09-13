@@ -1,14 +1,14 @@
 "use client";
 
 import {
+  ArrowUpRight,
   Building2,
   Check,
-  ChevronDown,
   ExternalLink,
+  FileText,
   MapPin,
   Plus,
 } from "lucide-react";
-import { useState } from "react";
 
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -22,77 +22,77 @@ export function JobCard({
   listing,
   score,
   tracked,
+  hasMaster,
+  hasTailored,
+  onOpen,
   onAdd,
+  onOpenResume,
 }: {
   listing: JobListing;
   /** `null` when there is no master resume to compare against. */
   score: number | null;
   tracked: boolean;
+  hasMaster: boolean;
+  hasTailored: boolean;
+  /** Opens (creating the application first if needed) the same detail page
+   * an application gets from the Applications list. */
+  onOpen: () => void;
   onAdd: () => void;
+  onOpenResume: () => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
-
   return (
     <article className="flex flex-col rounded-xl border border-line bg-surface p-4 shadow-card transition hover:border-line-strong">
-      <div className="flex items-start justify-between gap-3">
-        <h3 className="text-sm font-semibold leading-snug text-ink">
-          {listing.position}
-        </h3>
-        {score !== null ? <MatchPill score={score} /> : null}
-      </div>
-
-      <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-muted">
-        <span className="inline-flex items-center gap-1">
-          <Building2 size={12} aria-hidden="true" />
-          {listing.company}
-        </span>
-        {listing.location ? (
-          <span className="inline-flex items-center gap-1">
-            <MapPin size={12} aria-hidden="true" />
-            {listing.location}
-          </span>
-        ) : null}
-      </p>
-
-      <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-        {listing.workMode !== "unknown" ? (
-          <Badge tone={listing.workMode === "remote" ? "positive" : "neutral"}>
-            {WORK_MODE_LABELS[listing.workMode]}
-          </Badge>
-        ) : null}
-        {listing.department ? <Badge>{listing.department}</Badge> : null}
-        {listing.postedAt ? (
-          <span className="text-[11px] text-ink-subtle">
-            Posted {formatDate(listing.postedAt)}
-          </span>
-        ) : null}
-      </div>
-
-      {listing.description ? (
-        <div className="mt-3">
-          <button
-            type="button"
-            onClick={() => setExpanded((open) => !open)}
-            aria-expanded={expanded}
-            className="inline-flex items-center gap-1 text-xs font-medium text-brand hover:underline"
-          >
-            <ChevronDown
-              size={13}
+      <button
+        type="button"
+        onClick={onOpen}
+        className="w-full rounded-sm text-left"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <h3 className="text-sm font-semibold leading-snug text-ink">
+            {listing.position}
+          </h3>
+          <span className="flex shrink-0 items-center gap-2">
+            {score !== null ? <MatchPill score={score} /> : null}
+            <ArrowUpRight
+              size={16}
               aria-hidden="true"
-              className={cn("transition-transform", expanded && "rotate-180")}
+              className="text-ink-subtle"
             />
-            {expanded ? "Hide description" : "Show description"}
-          </button>
+          </span>
+        </div>
 
-          {expanded ? (
-            <p className="mt-2 max-h-64 overflow-x-hidden overflow-y-auto whitespace-pre-line break-words rounded-lg bg-surface-muted/60 p-3 text-xs leading-relaxed text-ink-muted">
-              {listing.description}
-            </p>
+        <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-muted">
+          <span className="inline-flex items-center gap-1">
+            <Building2 size={12} aria-hidden="true" />
+            {listing.company}
+          </span>
+          {listing.location ? (
+            <span className="inline-flex items-center gap-1">
+              <MapPin size={12} aria-hidden="true" />
+              {listing.location}
+            </span>
+          ) : null}
+        </p>
+
+        <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+          {listing.workMode !== "unknown" ? (
+            <Badge tone={listing.workMode === "remote" ? "positive" : "neutral"}>
+              {WORK_MODE_LABELS[listing.workMode]}
+            </Badge>
+          ) : null}
+          {listing.department ? <Badge>{listing.department}</Badge> : null}
+          {listing.postedAt ? (
+            <span className="text-[11px] text-ink-subtle">
+              Posted {formatDate(listing.postedAt)}
+            </span>
           ) : null}
         </div>
-      ) : null}
+      </button>
 
-      <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-line pt-3">
+      <div
+        className="mt-4 flex flex-wrap items-center gap-2 border-t border-line pt-3"
+        onClick={(event) => event.stopPropagation()}
+      >
         {tracked ? (
           <span className="inline-flex items-center gap-1.5 text-xs font-medium text-positive">
             <Check size={14} aria-hidden="true" />
@@ -104,6 +104,15 @@ export function JobCard({
             Add to wishlist
           </Button>
         )}
+
+        <Button size="sm" variant="secondary" onClick={onOpenResume}>
+          <FileText size={14} aria-hidden="true" />
+          {!hasMaster
+            ? "Start a master resume"
+            : hasTailored
+              ? "Continue tailored resume"
+              : "Tailor a resume"}
+        </Button>
 
         <a
           href={listing.url}

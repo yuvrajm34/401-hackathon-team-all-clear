@@ -6,6 +6,7 @@
  */
 
 import { sniffResumeKind, stripRtf, TEXT_DECODER } from "./resume-kind";
+import { extractTexFromZip } from "./resume-zip";
 import {
   classifyLink,
   defaultLabelForKind,
@@ -23,7 +24,18 @@ export async function extractResumeFromBytes(
     throw new Error("Save the old .doc file as .docx or export a PDF.");
   }
   if (kind === "unknown") {
-    throw new Error("Use a PDF, Word (.docx or .dotx), or a .txt file.");
+    throw new Error(
+      "Use a PDF, Word (.docx), Overleaf .tex, or paste the .tex source.",
+    );
+  }
+  if (kind === "zip") {
+    const tex = extractTexFromZip(bytes);
+    if (!tex) {
+      throw new Error(
+        "That zip does not contain a .tex file. In Overleaf, open the resume .tex, Select All, copy, and paste it in the app.",
+      );
+    }
+    return { text: tex, links: [] };
   }
   if (kind === "text" || kind === "tex") {
     return { text: TEXT_DECODER.decode(bytes), links: [] };
@@ -42,13 +54,17 @@ async function extractPdf(
 ): Promise<{ text: string; links: ParsedLink[] }> {
   const { extractLinks, extractTextItems } = await import("unpdf");
 
-  const [{ items: pages }, { links }] = await Promise.all([
-    extractTextItems(bytes),
-    extractLinks(bytes).catch(() => ({ links: [] as string[] })),
+  // unpdf transfers the buffer into a worker, which detaches it — copy so
+  // extractTextItems and extractLinks (running concurrently) each get
+  // their own buffer instead of racing over the same one.
+  const [{ items: pages }, { links: urls }] = await Promise.all([
+    extractTextItems(bytes.slice()),
+    extractLinks(bytes.slice()).catch(() => ({ links: [] as string[] })),
   ]);
 
-  const hinted = links
+  const hinted = urls
     .map((url): ParsedLink | null => {
+      if (url.toLowerCase().startsWith("mailto:")) return null;
       const normalized = normalizeLinkUrl(url);
       if (!normalized) return null;
       const kind = classifyLink("", normalized);
