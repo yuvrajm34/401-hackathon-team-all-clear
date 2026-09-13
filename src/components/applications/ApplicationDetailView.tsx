@@ -34,6 +34,7 @@ import { useAppStore } from "@/store/useAppStore";
 import { ApplicationForm } from "./ApplicationForm";
 import { CommunicationLog } from "./CommunicationLog";
 import { FollowUpCard } from "./FollowUpCard";
+import { JobPostingPreview } from "./JobPostingPreview";
 import { MatchPanel } from "./MatchPanel";
 import { ReminderList } from "./ReminderList";
 import { StageStepper } from "./StageBadge";
@@ -52,6 +53,7 @@ function ApplicationDetailInner({ id }: { id: string }) {
   const application = useAppStore((state) =>
     state.applications.find((item) => item.id === id),
   );
+  const previewListing = useAppStore((state) => state.discoverPreviews[id]);
   const communications = useAppStore((state) => state.communications);
   const reminders = useAppStore((state) => state.reminders);
   const resumes = useAppStore((state) => state.resumes);
@@ -63,6 +65,7 @@ function ApplicationDetailInner({ id }: { id: string }) {
   const updateApplication = useAppStore((state) => state.updateApplication);
   const deleteApplication = useAppStore((state) => state.deleteApplication);
   const tailorResume = useAppStore((state) => state.tailorResume);
+  const importJobListing = useAppStore((state) => state.importJobListing);
 
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -77,6 +80,24 @@ function ApplicationDetailInner({ id }: { id: string }) {
   );
 
   if (!application) {
+    if (previewListing) {
+      const master = resumes.find((item) => item.isMaster);
+      return (
+        <JobPostingPreview
+          listing={previewListing}
+          resume={master}
+          onAdd={() => {
+            const newId = importJobListing(previewListing);
+            if (!newId) return;
+            toast(
+              `${previewListing.position} at ${previewListing.company} added to your wishlist`,
+            );
+            router.replace(`/applications/${newId}`);
+          }}
+        />
+      );
+    }
+
     return (
       <div className="mx-auto max-w-md py-16 text-center">
         <h1 className="text-lg font-semibold text-ink">

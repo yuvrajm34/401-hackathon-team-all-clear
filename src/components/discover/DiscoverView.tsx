@@ -59,6 +59,7 @@ function DiscoverViewInner() {
   const resumes = useAppStore((state) => state.resumes);
   const master = useAppStore(selectMasterResume);
   const importJobListing = useAppStore((state) => state.importJobListing);
+  const setDiscoverPreview = useAppStore((state) => state.setDiscoverPreview);
   const tailorResume = useAppStore((state) => state.tailorResume);
 
   const [query, setQuery] = useState("");
@@ -171,18 +172,25 @@ function DiscoverViewInner() {
     return scored;
   }, [data, masterText, sort]);
 
-  /** Ensures a listing has a tracked application, then opens the same
-   * detail page an application gets from the Applications list — importing
-   * it first if this is the first time it's been opened from here. */
+  /** If the posting is already tracked, go straight to its real detail
+   * page. Otherwise open the same page in a read-only preview — job
+   * description, match score, AI tailoring suggestions all still render,
+   * but nothing is created in the pipeline until "Add to wishlist" is
+   * clicked there. Merely looking at a posting used to add it to the
+   * wishlist on its own, which quietly filled up the pipeline just from
+   * browsing. */
   const handleOpenApplication = (listing: JobListing) => {
     const target = normalizeUrl(listing.url);
     const existing = applications.find(
       (application) =>
         application.url && normalizeUrl(application.url) === target,
     );
-    const applicationId = existing?.id ?? importJobListing(listing);
-    if (!applicationId) return;
-    router.push(`/applications/${applicationId}`);
+    if (existing) {
+      router.push(`/applications/${existing.id}`);
+      return;
+    }
+    setDiscoverPreview(listing);
+    router.push(`/applications/${encodeURIComponent(listing.id)}`);
   };
 
   const handleAdd = (listing: JobListing) => {

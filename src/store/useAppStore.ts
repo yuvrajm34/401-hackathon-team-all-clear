@@ -44,6 +44,13 @@ interface DataState {
   reminders: Reminder[];
   resumes: Resume[];
   settings: Settings;
+  /** Listings opened from Discover before they're tracked anywhere, keyed
+   * by `JobListing.id` — lets the application detail route render a
+   * read-only preview without creating a real application just from being
+   * viewed. Session-only: deliberately left out of `partialize` below, so
+   * it's never written to localStorage or round-tripped through
+   * export/import. */
+  discoverPreviews: Record<string, JobListing>;
 }
 
 export type NewApplicationInput = Partial<
@@ -61,6 +68,9 @@ interface Actions {
   addApplication: (input: NewApplicationInput) => string;
   /** Returns the new id, or `null` when this posting is already tracked. */
   importJobListing: (listing: JobListing) => string | null;
+  /** Caches a listing so `/applications/{listing.id}` can render a preview
+   * before it's tracked — see `discoverPreviews` on `DataState`. */
+  setDiscoverPreview: (listing: JobListing) => void;
   updateApplication: (
     id: string,
     patch: Partial<Omit<Application, "id" | "createdAt">>,
@@ -116,6 +126,7 @@ function emptyState(): DataState {
     reminders: [],
     resumes: [],
     settings: { ...DEFAULT_SETTINGS },
+    discoverPreviews: {},
   };
 }
 
@@ -193,6 +204,12 @@ export const useAppStore = create<AppStore>()(
           stage: "wishlist",
           jobDescription: listing.description,
           tags: tag ? [tag] : [],
+        });
+      },
+
+      setDiscoverPreview: (listing) => {
+        set((state) => {
+          state.discoverPreviews[listing.id] = listing;
         });
       },
 
