@@ -84,3 +84,52 @@ export function isWithinLastDays(iso: string, days: number): boolean {
   const diff = daysSince(iso);
   return diff >= 0 && diff < days;
 }
+
+export function startOfMonth(iso: string = todayIso()): string {
+  const date = parseDate(iso) ?? new Date();
+  return toIsoDate(new Date(date.getFullYear(), date.getMonth(), 1, 12, 0, 0, 0));
+}
+
+export function addMonths(iso: string, months: number): string {
+  const date = parseDate(iso) ?? new Date();
+  date.setMonth(date.getMonth() + months);
+  return toIsoDate(date);
+}
+
+export function formatMonthYear(iso: string): string {
+  const date = parseDate(iso);
+  if (!date) return "—";
+  return date.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+}
+
+export function weekdayLabels(style: "short" | "narrow" = "short"): string[] {
+  const monday = startOfWeek();
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(monday);
+    date.setDate(monday.getDate() + index);
+    return date.toLocaleDateString(undefined, { weekday: style });
+  });
+}
+
+/** Monday-first cells covering the month — 5 or 6 weeks. */
+export function buildMonthGrid(monthIso: string): { iso: string; inMonth: boolean }[] {
+  const monthKey = startOfMonth(monthIso).slice(0, 7);
+  const monthStart = parseDate(startOfMonth(monthIso));
+  if (!monthStart) return [];
+
+  const gridStart = startOfWeek(monthStart);
+  const cells: { iso: string; inMonth: boolean }[] = [];
+
+  for (let index = 0; index < 42; index += 1) {
+    const date = new Date(gridStart);
+    date.setDate(gridStart.getDate() + index);
+    const iso = toIsoDate(date);
+    cells.push({ iso, inMonth: iso.startsWith(monthKey) });
+  }
+
+  const trailing = cells.slice(35);
+  if (trailing.every((cell) => !cell.inMonth)) {
+    return cells.slice(0, 35);
+  }
+  return cells;
+}

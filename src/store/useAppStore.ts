@@ -94,6 +94,10 @@ interface Actions {
     dueDate: string;
   }) => void;
   toggleReminder: (id: string) => void;
+  updateReminder: (
+    id: string,
+    patch: Partial<Pick<Reminder, "title" | "dueDate" | "done">>,
+  ) => void;
   deleteReminder: (id: string) => void;
 
   /* Resumes */
@@ -323,6 +327,16 @@ export const useAppStore = create<AppStore>()(
         set((state) => {
           const reminder = state.reminders.find((r) => r.id === id);
           if (reminder) reminder.done = !reminder.done;
+        });
+      },
+
+      updateReminder: (id, patch) => {
+        set((state) => {
+          const reminder = state.reminders.find((r) => r.id === id);
+          if (!reminder) return;
+          if (patch.title !== undefined) reminder.title = patch.title.trim();
+          if (patch.dueDate !== undefined) reminder.dueDate = patch.dueDate;
+          if (patch.done !== undefined) reminder.done = patch.done;
         });
       },
 
