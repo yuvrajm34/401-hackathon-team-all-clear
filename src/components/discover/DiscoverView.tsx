@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Compass,
@@ -10,13 +11,13 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { HydrationGate, Skeleton } from "@/components/layout/HydrationGate";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { Select, TextInput } from "@/components/ui/Field";
+import { TextInput } from "@/components/ui/Field";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { toast } from "@/components/ui/Toaster";
 import { cn } from "@/lib/cn";
@@ -322,43 +323,37 @@ function DiscoverViewInner() {
             />
           </div>
 
-          <Select
+          <CompactSelect
+            ariaLabel="Filter by company"
             value={company}
-            onChange={(event) => {
-              setCompany(event.target.value);
+            onChange={(next) => {
+              setCompany(next);
               setPage(1);
             }}
-            aria-label="Filter by company"
-            className="w-auto"
-          >
-            <option value="all">All companies</option>
-            {COMPANIES.map((item) => (
-              <option key={item.slug} value={item.slug}>
-                {item.name}
-              </option>
-            ))}
-          </Select>
+            options={[
+              { value: "all", label: "All companies" },
+              ...COMPANIES.map((item) => ({
+                value: item.slug,
+                label: item.name,
+              })),
+            ]}
+          />
 
-          <Select
+          <CompactSelect
+            ariaLabel="Filter by field"
             value={family ?? "all"}
-            onChange={(event) => {
-              setFamily(
-                event.target.value === "all"
-                  ? null
-                  : (event.target.value as JobFamily),
-              );
+            onChange={(next) => {
+              setFamily(next === "all" ? null : (next as JobFamily));
               setPage(1);
             }}
-            aria-label="Filter by field"
-            className="w-auto"
-          >
-            <option value="all">All fields</option>
-            {JOB_FAMILIES.map((item) => (
-              <option key={item} value={item}>
-                {item} ({familyCounts[item] ?? 0})
-              </option>
-            ))}
-          </Select>
+            options={[
+              { value: "all", label: "All fields" },
+              ...JOB_FAMILIES.map((item) => ({
+                value: item,
+                label: `${item} (${familyCounts[item] ?? 0})`,
+              })),
+            ]}
+          />
 
           <SegmentedControl<string>
             ariaLabel="Posted date"
@@ -519,6 +514,88 @@ function DiscoverViewInner() {
         </>
       )}
     </>
+  );
+}
+
+function CompactSelect({
+  value,
+  ariaLabel,
+  options,
+  onChange,
+}: {
+  value: string;
+  ariaLabel: string;
+  options: { value: string; label: string }[];
+  onChange: (value: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const selected = options.find((option) => option.value === value);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (event: MouseEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [open]);
+
+  return (
+    <div ref={rootRef} className="relative">
+      <button
+        type="button"
+        aria-label={ariaLabel}
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        onClick={() => setOpen((current) => !current)}
+        className={cn(
+          "inline-flex h-9 max-w-[9.5rem] items-center gap-1.5 rounded-xl bg-surface-muted px-2.5 text-sm font-medium text-ink",
+          "hover:bg-surface-raised",
+          "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand",
+        )}
+      >
+        <span className="min-w-0 truncate">{selected?.label}</span>
+        <ChevronDown
+          size={14}
+          aria-hidden="true"
+          className="shrink-0 text-ink-muted"
+        />
+      </button>
+      {open ? (
+        <ul
+          role="listbox"
+          className="scrollbar-slim absolute z-30 mt-1 max-h-40 min-w-[11rem] overflow-y-auto rounded-xl bg-surface py-1 shadow-raised"
+        >
+          {options.map((option) => {
+            const active = option.value === value;
+            return (
+              <li key={option.value}>
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={active}
+                  className={cn(
+                    "w-full truncate px-3 py-1.5 text-left text-sm",
+                    active
+                      ? "bg-brand-soft text-brand-on-soft"
+                      : "text-ink hover:bg-surface-muted",
+                  )}
+                  onClick={() => {
+                    onChange(option.value);
+                    setOpen(false);
+                  }}
+                >
+                  {option.label}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
+    </div>
   );
 }
 
