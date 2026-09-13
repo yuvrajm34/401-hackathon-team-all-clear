@@ -11,6 +11,7 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { toast } from "@/components/ui/Toaster";
 import { cn } from "@/lib/cn";
 import { todayIso } from "@/lib/dates";
+import { hasMemeForStage } from "@/lib/memes";
 import { STAGE_META } from "@/lib/stages";
 import { STAGES, type Application, type Stage } from "@/lib/types";
 import { useAppStore } from "@/store/useAppStore";
@@ -18,6 +19,7 @@ import { useAppStore } from "@/store/useAppStore";
 import type { ApplicationCardMeta } from "./ApplicationCard";
 import { ApplicationsTable } from "./ApplicationsTable";
 import { KanbanBoard } from "./KanbanBoard";
+import { MemePopup, type MemeEvent } from "./MemePopup";
 import { QuickAddButton } from "./QuickAddButton";
 
 type ViewMode = "board" | "list";
@@ -42,6 +44,7 @@ function ApplicationsViewInner() {
 
   const [view, setView] = useState<ViewMode>("board");
   const [stageFilter, setStageFilter] = useState<Stage | "all">("all");
+  const [memeEvent, setMemeEvent] = useState<MemeEvent | null>(null);
 
   const filtered = useMemo(() => {
     if (stageFilter === "all") return applications;
@@ -68,6 +71,19 @@ function ApplicationsViewInner() {
       toast(`Offer from ${application.company}. Congratulations.`);
     } else if (application) {
       toast(`${application.company} moved to ${STAGE_META[stage].label}`);
+    }
+  };
+
+  // Only the drag-to-move interaction on the board triggers a meme — moving
+  // an application by picking a stage from the table's dropdown doesn't.
+  // Also skipped for a drop back into the same column it was already in,
+  // since nothing actually changed.
+  const handleBoardMove = (id: string, stage: Stage) => {
+    const application = applications.find((a) => a.id === id);
+    const changedStage = Boolean(application) && application!.stage !== stage;
+    handleMove(id, stage);
+    if (changedStage && hasMemeForStage(stage)) {
+      setMemeEvent({ stage, key: Date.now() });
     }
   };
 
@@ -167,7 +183,7 @@ function ApplicationsViewInner() {
         <KanbanBoard
           applications={filtered}
           metaFor={metaFor}
-          onMove={handleMove}
+          onMove={handleBoardMove}
         />
       ) : (
         <ApplicationsTable
@@ -178,6 +194,8 @@ function ApplicationsViewInner() {
           }
         />
       )}
+
+      <MemePopup event={memeEvent} onDone={() => setMemeEvent(null)} />
     </>
   );
 }
