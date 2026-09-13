@@ -1,33 +1,30 @@
 "use client";
 
 import {
+  ArrowUpRight,
   Building2,
   Check,
-  ChevronDown,
   ExternalLink,
   FileText,
   MapPin,
   Plus,
 } from "lucide-react";
-import { useMemo } from "react";
 
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
 import { formatDate } from "@/lib/dates";
 import type { JobListing } from "@/lib/jobs/types";
-import { buildMatchReport, scoreLabel } from "@/lib/keywords";
+import { scoreLabel } from "@/lib/keywords";
 import { WORK_MODE_LABELS } from "@/lib/stages";
 
 export function JobCard({
   listing,
   score,
   tracked,
-  expanded,
-  masterText,
   hasMaster,
   hasTailored,
-  onToggle,
+  onOpen,
   onAdd,
   onOpenResume,
 }: {
@@ -35,35 +32,19 @@ export function JobCard({
   /** `null` when there is no master resume to compare against. */
   score: number | null;
   tracked: boolean;
-  expanded: boolean;
-  masterText: string;
   hasMaster: boolean;
   hasTailored: boolean;
-  onToggle: () => void;
+  /** Opens (creating the application first if needed) the same detail page
+   * an application gets from the Applications list. */
+  onOpen: () => void;
   onAdd: () => void;
   onOpenResume: () => void;
 }) {
-  const report = useMemo(
-    () =>
-      expanded && listing.description
-        ? buildMatchReport(listing.description, masterText)
-        : null,
-    [expanded, listing.description, masterText],
-  );
-
   return (
-    <article
-      className={cn(
-        "flex flex-col rounded-xl border bg-surface p-4 shadow-card transition",
-        expanded
-          ? "col-span-full border-brand"
-          : "border-line hover:border-line-strong",
-      )}
-    >
+    <article className="flex flex-col rounded-xl border border-line bg-surface p-4 shadow-card transition hover:border-line-strong">
       <button
         type="button"
-        onClick={onToggle}
-        aria-expanded={expanded}
+        onClick={onOpen}
         className="w-full rounded-sm text-left"
       >
         <div className="flex items-start justify-between gap-3">
@@ -72,13 +53,10 @@ export function JobCard({
           </h3>
           <span className="flex shrink-0 items-center gap-2">
             {score !== null ? <MatchPill score={score} /> : null}
-            <ChevronDown
+            <ArrowUpRight
               size={16}
               aria-hidden="true"
-              className={cn(
-                "text-ink-subtle transition-transform",
-                expanded && "rotate-180",
-              )}
+              className="text-ink-subtle"
             />
           </span>
         </div>
@@ -110,32 +88,6 @@ export function JobCard({
           ) : null}
         </div>
       </button>
-
-      {expanded ? (
-        <div className="mt-4 space-y-3 border-t border-line pt-3">
-          {listing.description ? (
-            <p className="max-h-72 overflow-y-auto whitespace-pre-wrap text-sm leading-relaxed text-ink-muted">
-              {listing.description}
-            </p>
-          ) : (
-            <p className="text-sm text-ink-subtle">
-              No description came with this posting. Open it on the company
-              site.
-            </p>
-          )}
-
-          {report && !report.empty && report.missing.length > 0 ? (
-            <p className="text-xs text-ink-subtle">
-              Missing from your original:{" "}
-              {report.missing
-                .slice(0, 8)
-                .map((hit) => hit.keyword)
-                .join(", ")}
-              {report.missing.length > 8 ? "…" : ""}
-            </p>
-          ) : null}
-        </div>
-      ) : null}
 
       <div
         className="mt-4 flex flex-wrap items-center gap-2 border-t border-line pt-3"

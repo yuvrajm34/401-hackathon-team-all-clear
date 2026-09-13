@@ -1,6 +1,6 @@
 import { contactItems, techSeparatorList } from "./resume-format";
-import { dateRangeLabel, visibleResume } from "./resume";
-import type { Resume } from "./types";
+import { dateRangeLabel, getSectionOrder, visibleResume } from "./resume";
+import type { Resume, ResumeSectionKey } from "./types";
 
 /**
  * Renders a resume to a self-contained LaTeX document that compiles on
@@ -11,14 +11,12 @@ export function resumeToLatex(resume: Resume): string {
   const visible = visibleResume(resume);
   const { profile } = resume;
 
-  const sections: string[] = [];
+  const bySection: Partial<Record<ResumeSectionKey, string>> = {};
 
   if (resume.summary.trim()) {
-    sections.push(
-      section(
-        "Summary",
-        `${escapeLatex(resume.summary.trim())}\n`,
-      ),
+    bySection.summary = section(
+      "Summary",
+      `${escapeLatex(resume.summary.trim())}\n`,
     );
   }
 
@@ -38,8 +36,9 @@ export function resumeToLatex(resume: Resume): string {
       })
       .join("");
 
-    sections.push(
-      section("Education", `  \\resumeSubHeadingListStart\n${body}  \\resumeSubHeadingListEnd\n`),
+    bySection.education = section(
+      "Education",
+      `  \\resumeSubHeadingListStart\n${body}  \\resumeSubHeadingListEnd\n`,
     );
   }
 
@@ -56,8 +55,9 @@ export function resumeToLatex(resume: Resume): string {
       })
       .join("");
 
-    sections.push(
-      section("Experience", `  \\resumeSubHeadingListStart\n${body}  \\resumeSubHeadingListEnd\n`),
+    bySection.experience = section(
+      "Experience",
+      `  \\resumeSubHeadingListStart\n${body}  \\resumeSubHeadingListEnd\n`,
     );
   }
 
@@ -78,8 +78,9 @@ export function resumeToLatex(resume: Resume): string {
       })
       .join("");
 
-    sections.push(
-      section("Projects", `  \\resumeSubHeadingListStart\n${body}  \\resumeSubHeadingListEnd\n`),
+    bySection.projects = section(
+      "Projects",
+      `  \\resumeSubHeadingListStart\n${body}  \\resumeSubHeadingListEnd\n`,
     );
   }
 
@@ -93,13 +94,15 @@ export function resumeToLatex(resume: Resume): string {
       )
       .join(" \\\\\n");
 
-    sections.push(
-      section(
-        "Technical Skills",
-        ` \\begin{itemize}[leftmargin=0.15in, label={}]\n    \\small{\\item{\n${rows}\n    }}\n \\end{itemize}\n`,
-      ),
+    bySection.skills = section(
+      "Technical Skills",
+      ` \\begin{itemize}[leftmargin=0.15in, label={}]\n    \\small{\\item{\n${rows}\n    }}\n \\end{itemize}\n`,
     );
   }
+
+  const sections = getSectionOrder(resume)
+    .map((key) => bySection[key])
+    .filter((value): value is string => Boolean(value));
 
   return `${PREAMBLE}
 \\begin{document}
@@ -199,51 +202,62 @@ export function resumeToPlainText(resume: Resume): string {
   lines.push(profile.fullName || "Your Name");
   lines.push(contactItems(profile).map((item) => item.text).join(" | "));
 
+  const bySection: Partial<Record<ResumeSectionKey, string[]>> = {};
+
   if (resume.summary.trim()) {
-    lines.push("", "SUMMARY", resume.summary.trim());
+    bySection.summary = ["", "SUMMARY", resume.summary.trim()];
   }
 
   if (visible.education.length > 0) {
-    lines.push("", "EDUCATION");
+    const section: string[] = ["", "EDUCATION"];
     for (const item of visible.education) {
-      lines.push(
+      section.push(
         "",
         [item.school, item.location].filter(Boolean).join(" — "),
         [item.degree, dateRangeLabel(item.start, item.end)]
           .filter(Boolean)
           .join(" — "),
       );
-      if (item.details) lines.push(item.details);
+      if (item.details) section.push(item.details);
     }
+    bySection.education = section;
   }
 
   if (visible.experience.length > 0) {
-    lines.push("", "EXPERIENCE");
+    const section: string[] = ["", "EXPERIENCE"];
     for (const item of visible.experience) {
-      lines.push(
+      section.push(
         "",
         `${item.role} — ${item.company}${item.location ? `, ${item.location}` : ""}`,
       );
       const range = dateRangeLabel(item.start, item.end);
-      if (range) lines.push(range);
-      for (const b of item.bullets) lines.push(`- ${b.text}`);
+      if (range) section.push(range);
+      for (const b of item.bullets) section.push(`- ${b.text}`);
     }
+    bySection.experience = section;
   }
 
   if (visible.projects.length > 0) {
-    lines.push("", "PROJECTS");
+    const section: string[] = ["", "PROJECTS"];
     for (const item of visible.projects) {
-      lines.push("", `${item.name}${item.tech ? ` (${item.tech})` : ""}`);
-      if (item.link) lines.push(item.link);
-      for (const b of item.bullets) lines.push(`- ${b.text}`);
+      section.push("", `${item.name}${item.tech ? ` (${item.tech})` : ""}`);
+      if (item.link) section.push(item.link);
+      for (const b of item.bullets) section.push(`- ${b.text}`);
     }
+    bySection.projects = section;
   }
 
   if (visible.skills.length > 0) {
-    lines.push("", "SKILLS");
+    const section: string[] = ["", "SKILLS"];
     for (const group of visible.skills) {
-      lines.push(`${group.label}: ${group.skills.join(", ")}`);
+      section.push(`${group.label}: ${group.skills.join(", ")}`);
     }
+    bySection.skills = section;
+  }
+
+  for (const key of getSectionOrder(resume)) {
+    const section = bySection[key];
+    if (section) lines.push(...section);
   }
 
   return lines.join("\n");

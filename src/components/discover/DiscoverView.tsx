@@ -9,6 +9,7 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { HydrationGate, Skeleton } from "@/components/layout/HydrationGate";
@@ -53,6 +54,7 @@ function useDebounced<T>(value: T, delay: number): T {
 }
 
 function DiscoverViewInner() {
+  const router = useRouter();
   const applications = useAppStore((state) => state.applications);
   const resumes = useAppStore((state) => state.resumes);
   const master = useAppStore(selectMasterResume);
@@ -63,9 +65,12 @@ function DiscoverViewInner() {
   const [company, setCompany] = useState("all");
   const [family, setFamily] = useState<JobFamily | null>(null);
   const [remoteOnly, setRemoteOnly] = useState(false);
-  const [sort, setSort] = useState<SortMode>("newest");
+  // Default to sorting by match once a master resume exists to score
+  // against — otherwise there's nothing to match on, so newest is the only
+  // sort that means anything. Only applies on mount; a user's manual
+  // choice afterward isn't overridden.
+  const [sort, setSort] = useState<SortMode>(() => (master ? "match" : "newest"));
   const [page, setPage] = useState(1);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [resumeListing, setResumeListing] = useState<JobListing | null>(null);
 
   /** Bumped to re-run the search when nothing about the filters changed. */
@@ -165,6 +170,20 @@ function DiscoverViewInner() {
 
     return scored;
   }, [data, masterText, sort]);
+
+  /** Ensures a listing has a tracked application, then opens the same
+   * detail page an application gets from the Applications list — importing
+   * it first if this is the first time it's been opened from here. */
+  const handleOpenApplication = (listing: JobListing) => {
+    const target = normalizeUrl(listing.url);
+    const existing = applications.find(
+      (application) =>
+        application.url && normalizeUrl(application.url) === target,
+    );
+    const applicationId = existing?.id ?? importJobListing(listing);
+    if (!applicationId) return;
+    router.push(`/applications/${applicationId}`);
+  };
 
   const handleAdd = (listing: JobListing) => {
     if (importJobListing(listing)) {
@@ -281,7 +300,6 @@ function DiscoverViewInner() {
               onChange={(event) => {
                 setQuery(event.target.value);
                 setPage(1);
-                setExpandedId(null);
               }}
               placeholder="Search role, team, or city"
               aria-label="Search job postings"
@@ -426,15 +444,9 @@ function DiscoverViewInner() {
                 listing={listing}
                 score={score}
                 tracked={trackedUrls.has(normalizeUrl(listing.url))}
-                expanded={expandedId === listing.id}
-                masterText={masterText}
                 hasMaster={Boolean(master)}
                 hasTailored={tailoredByUrl.has(normalizeUrl(listing.url))}
-                onToggle={() =>
-                  setExpandedId((current) =>
-                    current === listing.id ? null : listing.id,
-                  )
-                }
+                onOpen={() => handleOpenApplication(listing)}
                 onAdd={() => handleAdd(listing)}
                 onOpenResume={() => handleOpenResume(listing)}
               />

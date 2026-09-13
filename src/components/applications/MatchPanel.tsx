@@ -1,25 +1,24 @@
 "use client";
 
-import { Loader2, Plus, Sparkles, Target } from "lucide-react";
+import { Loader2, Sparkles, Target } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
-import { Button, ButtonLink } from "@/components/ui/Button";
+import { ButtonLink, Button } from "@/components/ui/Button";
 import { Panel, PanelBody, PanelHeader } from "@/components/ui/Panel";
 import { ProgressRing } from "@/components/ui/ProgressRing";
-import { toast } from "@/components/ui/Toaster";
 import { cn } from "@/lib/cn";
 import { buildMatchReport, scoreLabel } from "@/lib/keywords";
-import { createSkillGroup } from "@/lib/resume";
 import { resumeText } from "@/lib/resume";
 import type { Application, Resume } from "@/lib/types";
-import { useAppStore } from "@/store/useAppStore";
-
-const EXTRA_GROUP_LABEL = "Additional skills";
 
 /**
  * Compares the job description against the resume attached to this
- * application and shows which of the posting's terms are missing.
+ * application: a keyword-overlap score for a quick read, plus genuine,
+ * specific AI tailoring suggestions (reframes and flagged gaps) instead of
+ * a raw "missing terms" list — that used to surface generic posting
+ * language as a "skill" the resume was missing, with a one-click button to
+ * bolt it on verbatim.
  */
 export function MatchPanel({
   application,
@@ -28,8 +27,6 @@ export function MatchPanel({
   application: Application;
   resume: Resume | undefined;
 }) {
-  const updateResume = useAppStore((state) => state.updateResume);
-
   const [suggestions, setSuggestions] = useState<string[] | null>(null);
   const [suggestLoading, setSuggestLoading] = useState(false);
   const [suggestError, setSuggestError] = useState("");
@@ -38,6 +35,7 @@ export function MatchPanel({
     if (!resume) return;
     setSuggestLoading(true);
     setSuggestError("");
+    setSuggestions([]);
     try {
       const response = await fetch("/api/resume/tailor-suggestions", {
         method: "POST",
@@ -47,14 +45,42 @@ export function MatchPanel({
           jobDescription: application.jobDescription,
         }),
       });
-      const payload = (await response.json().catch(() => null)) as
-        | { suggestions?: string[]; error?: string }
-        | null;
-      if (!response.ok || !payload) {
+      if (!response.ok || !response.body) {
+        const payload = (await response.json().catch(() => null)) as
+          | { error?: string }
+          | null;
         setSuggestError(payload?.error || "Could not generate suggestions.");
         return;
       }
-      setSuggestions(payload.suggestions ?? []);
+
+      // Read the streamed lines as they arrive and render each one right
+      // away — the model takes 10-20+ seconds to finish end to end, and
+      // waiting for the whole batch left this panel showing a bare spinner
+      // that whole time. See ollamaStreamLines in lib/ollama.ts.
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let sawError = "";
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        let newline: number;
+        while ((newline = buffer.indexOf("\n")) !== -1) {
+          const line = buffer.slice(0, newline).trim();
+          buffer = buffer.slice(newline + 1);
+          if (!line) continue;
+          if (line.startsWith("__ERROR__:")) {
+            sawError = line.slice("__ERROR__:".length);
+            continue;
+          }
+          setSuggestions((prev) => [...(prev ?? []), line]);
+        }
+      }
+
+      if (sawError) setSuggestError(sawError);
     } catch {
       setSuggestError("Could not reach the AI suggestion service.");
     } finally {
@@ -74,28 +100,6 @@ export function MatchPanel({
   const hasJobDescription = application.jobDescription.trim().length > 0;
   const { label, tone } = scoreLabel(report.score);
 
-  const addKeywordToResume = (keyword: string) => {
-    if (!resume) return;
-
-    updateResume(resume.id, (draft) => {
-      let group = draft.skills.find(
-        (candidate) => candidate.label === EXTRA_GROUP_LABEL,
-      );
-      if (!group) {
-        group = createSkillGroup(EXTRA_GROUP_LABEL);
-        draft.skills.push(group);
-      }
-      group.enabled = true;
-      if (
-        !group.skills.some((skill) => skill.toLowerCase() === keyword.toLowerCase())
-      ) {
-        group.skills.push(keyword);
-      }
-    });
-
-    toast(`Added "${keyword}" to ${resume.name}`);
-  };
-
   return (
     <Panel>
       <PanelHeader
@@ -105,8 +109,8 @@ export function MatchPanel({
       <PanelBody>
         {!hasJobDescription ? (
           <Hint>
-            Paste the job description into this application to see which terms
-            your resume is missing.
+            Paste the job description into this application to score it
+            against your resume and get tailored suggestions.
           </Hint>
         ) : !resume ? (
           <Hint>
@@ -159,38 +163,6 @@ export function MatchPanel({
                 </p>
               </div>
             </div>
-
-            {report.missing.length > 0 ? (
-              <section>
-                <h3 className="mb-1.5 text-xs font-medium text-ink-muted">
-                  Missing from your resume
-                </h3>
-                <ul className="flex flex-wrap gap-1.5">
-                  {report.missing.map((hit) => (
-                    <li key={hit.keyword}>
-                      <button
-                        type="button"
-                        onClick={() => addKeywordToResume(hit.keyword)}
-                        title={`Add "${hit.keyword}" to ${resume.name}`}
-                        className="inline-flex items-center gap-1 rounded-md border border-dashed border-negative/40 bg-negative/5 px-1.5 py-0.5 text-[11px] text-negative transition hover:border-negative hover:bg-negative/10"
-                      >
-                        <Plus size={10} aria-hidden="true" />
-                        {hit.keyword}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-                <p className="mt-1.5 text-[11px] text-ink-subtle">
-                  Adding a term drops it into an &ldquo;{EXTRA_GROUP_LABEL}&rdquo;
-                  group so you can move it somewhere better in the editor. Only
-                  claim what is true.
-                </p>
-              </section>
-            ) : (
-              <p className="rounded-lg bg-positive/10 px-3 py-2 text-xs text-positive">
-                Every key term from this posting already appears in your resume.
-              </p>
-            )}
 
             {report.matched.length > 0 ? (
               <section>
@@ -251,7 +223,18 @@ export function MatchPanel({
                       {suggestion}
                     </li>
                   ))}
+                  {suggestLoading ? (
+                    <li className="flex items-center gap-1.5 px-3 py-1 text-[11px] text-ink-subtle">
+                      <Loader2 size={11} className="animate-spin" aria-hidden="true" />
+                      Still generating…
+                    </li>
+                  ) : null}
                 </ul>
+              ) : suggestLoading ? (
+                <p className="mt-2 flex items-center gap-1.5 text-xs text-ink-subtle">
+                  <Loader2 size={12} className="animate-spin" aria-hidden="true" />
+                  Reading the resume and posting…
+                </p>
               ) : suggestions && suggestions.length === 0 ? (
                 <p className="mt-2 text-xs text-ink-subtle">
                   Nothing to flag — the resume already lines up well with this
@@ -259,7 +242,7 @@ export function MatchPanel({
                 </p>
               ) : !suggestError ? (
                 <p className="mt-2 text-xs text-ink-subtle">
-                  Runs a local Ollama model (llama3.1:8b) to suggest specific
+                  Runs a local Ollama model (gemma3) to suggest specific
                   edits beyond keyword matching. Requires{" "}
                   <code className="rounded bg-surface-muted px-1 py-0.5">
                     ollama serve

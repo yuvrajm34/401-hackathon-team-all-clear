@@ -4,14 +4,16 @@ import {
   defaultLabelForKind,
   type ParsedResume,
 } from "./resume-parse";
-import type {
-  Bullet,
-  EducationItem,
-  ExperienceItem,
-  ProjectItem,
-  Resume,
-  ResumeProfile,
-  SkillGroup,
+import {
+  RESUME_SECTIONS,
+  type Bullet,
+  type EducationItem,
+  type ExperienceItem,
+  type ProjectItem,
+  type Resume,
+  type ResumeProfile,
+  type ResumeSectionKey,
+  type SkillGroup,
 } from "./types";
 
 /* -------------------------------------------------------------------------- */
@@ -98,6 +100,7 @@ export function createResume(options: {
     education: [createEducation()],
     projects: [],
     skills: [createSkillGroup("Languages"), createSkillGroup("Tools")],
+    sectionOrder: [...RESUME_SECTIONS],
     createdAt: timestamp,
     updatedAt: timestamp,
   };
@@ -278,6 +281,19 @@ function indexById<T extends { id: string }>(items: T[]): Map<string, T> {
 /* -------------------------------------------------------------------------- */
 /*                              Derived read models                           */
 /* -------------------------------------------------------------------------- */
+
+/**
+ * The section order to render/print in. Falls back to the default order
+ * for resumes saved before `sectionOrder` existed, and drops/repairs any
+ * stale or missing keys so a future schema change can't produce a broken
+ * order for old data.
+ */
+export function getSectionOrder(resume: Resume): ResumeSectionKey[] {
+  const known = new Set<ResumeSectionKey>(RESUME_SECTIONS);
+  const saved = (resume.sectionOrder ?? []).filter((key) => known.has(key));
+  const missing = RESUME_SECTIONS.filter((key) => !saved.includes(key));
+  return [...saved, ...missing];
+}
 
 /** The resume as it will actually be rendered: disabled entries removed. */
 export function visibleResume(resume: Resume) {

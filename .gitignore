@@ -13,6 +13,10 @@
 # testing
 /coverage
 
+# local resume samples used for manual parser testing — real personal PDFs,
+# not for the shared repo
+/test_resumes
+
 # next.js
 /.next/
 /out/

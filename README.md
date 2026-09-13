@@ -41,7 +41,7 @@ To enable them:
 1. [Install Ollama](https://ollama.com/download).
 2. Pull the model:
    ```bash
-   ollama pull llama3.1:8b
+   ollama pull gemma3
    ```
 3. Start the Ollama server and leave it running in its own terminal:
    ```bash
@@ -51,9 +51,13 @@ To enable them:
    ```bash
    cp .env.example .env.local
    ```
-   The defaults already point at `llama3.1:8b` on `http://localhost:11434`, so no edits are needed unless you're using a different model or host.
+   The defaults already point at `gemma3:latest` on `http://localhost:11434`, so no edits are needed unless you're using a different model or host.
 
-**A note on speed:** local inference time depends entirely on your hardware. With a GPU it's usually single-digit seconds; CPU-only can take 30–90+ seconds per request — that's expected, not a bug. If a GPU is present but doesn't seem to be in use (check the terminal running `ollama serve` for `library=CUDA` vs `library=cpu`), restarting `ollama serve` once often fixes detection.
+**A note on speed:** local generation speed is bandwidth-bound — every output token requires streaming the whole model's weights through the GPU (or CPU), so smaller models are proportionally faster. `gemma3` (4.3B) was picked as the default after measuring it at roughly 3x the generation speed of `llama3.1:8b` on the same hardware, with comparable resume-parsing quality in testing. If you hit worse results on an unusual resume format, `ollama pull llama3.1:8b` and set `OLLAMA_MODEL=llama3.1:8b` in `.env.local` for the larger, slower, generally more capable model.
+
+Total time also depends on your hardware: with a GPU, expect roughly single-digit seconds for `gemma3`; CPU-only can still take 30–90+ seconds per request regardless of model — that's expected, not a bug. If a GPU is present but doesn't seem to be in use (check the terminal running `ollama serve` for `library=CUDA` vs `library=cpu`), restarting `ollama serve` once often fixes detection.
+
+Either way, resume upload shows the fast built-in parser's result immediately and upgrades it with the AI result in the background once it's ready, so this wait never blocks the UI.
 
 ## What it does
 
@@ -121,7 +125,7 @@ With Ollama running, an application's Keyword match panel gets a **Get suggestio
 | State | Zustand with `persist` + Immer |
 | Drag and drop | `@dnd-kit` |
 | Icons | `lucide-react` |
-| AI (optional) | Local model via [Ollama](https://ollama.com) (`llama3.1:8b`) |
+| AI (optional) | Local model via [Ollama](https://ollama.com) (`gemma3`, or `llama3.1:8b` for higher accuracy) |
 
 The stack was picked deliberately to get hands-on with the tools most commonly used in modern web development.
 

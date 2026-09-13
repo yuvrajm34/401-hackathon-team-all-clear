@@ -190,6 +190,8 @@ export interface Resume {
   education: EducationItem[];
   projects: ProjectItem[];
   skills: SkillGroup[];
+  /** Display/print order for summary/experience/projects/education/skills. */
+  sectionOrder: ResumeSectionKey[];
   createdAt: string;
   updatedAt: string;
 }

@@ -2,7 +2,7 @@
 
 import { ClipboardPaste, FileUp, LoaderCircle, Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { TextArea } from "@/components/ui/Field";
@@ -10,10 +10,12 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { SlideOver } from "@/components/ui/SlideOver";
 import { toast } from "@/components/ui/Toaster";
 import {
-  parseResumeFile,
+  parseResumeFileQuick,
   parseResumeSource,
+  refineResumeWithAI,
   RESUME_ACCEPT,
   ResumeFileError,
+  type ResumeFileQuickResult,
 } from "@/lib/resume-file";
 import {
   describeParsedResume,
@@ -21,6 +23,9 @@ import {
   type ParsedResume,
 } from "@/lib/resume-parse";
 import { useAppStore } from "@/store/useAppStore";
+
+const EMPTY_MESSAGE =
+  "Could not find name, education, or projects in that source. In Overleaf, open the .tex that has those sections, Select All, copy, and paste it here.";
 
 interface UploadResumeDialogProps {
   open: boolean;
@@ -69,6 +74,18 @@ function UploadResumeDialogInner({ open, onClose }: UploadResumeDialogProps) {
   const [error, setError] = useState("");
   const [parsed, setParsed] = useState<ParsedResume | null>(null);
 
+  // Guards so a slow background AI call doesn't set state after the user
+  // already applied the quick result, picked a different file, or closed
+  // the dialog (component unmounted).
+  const appliedRef = useRef(false);
+  const requestIdRef = useRef(0);
+  const unmountedRef = useRef(false);
+  useEffect(() => {
+    return () => {
+      unmountedRef.current = true;
+    };
+  }, []);
+
   const found = parsed ? describeParsedResume(parsed) : [];
 
   const resetPicker = () => {
@@ -77,9 +94,7 @@ function UploadResumeDialogInner({ open, onClose }: UploadResumeDialogProps) {
 
   const takeParsed = (next: ParsedResume, label: string) => {
     if (parsedResumeIsEmpty(next)) {
-      setError(
-        "Could not find name, education, or projects in that source. In Overleaf, open the .tex that has those sections, Select All, copy, and paste it here.",
-      );
+      setError(EMPTY_MESSAGE);
       return;
     }
     setFileName(label);
@@ -87,26 +102,59 @@ function UploadResumeDialogInner({ open, onClose }: UploadResumeDialogProps) {
   };
 
   const readFile = async (file: File) => {
+    const requestId = ++requestIdRef.current;
+    appliedRef.current = false;
     setBusy(true);
     setError("");
     setParsed(null);
     setFileName(file.name);
 
+    let quick: ResumeFileQuickResult;
     try {
-      takeParsed(await parseResumeFile(file), file.name);
+      quick = await parseResumeFileQuick(file);
     } catch (caught) {
       const message =
         caught instanceof ResumeFileError
           ? caught.message
           : "Could not read that file.";
       setError(message);
-    } finally {
       setBusy(false);
       resetPicker();
+      return;
+    }
+
+    // Show the fast heuristic result right away — this is deliberately not
+    // gated on AI. The regex/positional-layout parser alone handles real
+    // resumes well and resolves in well under a second; waiting on a local
+    // model (10-30+ seconds, and dependent on Ollama actually running) to
+    // show *anything* made the dialog look stuck for no benefit most of
+    // the time.
+    setBusy(false);
+    resetPicker();
+    takeParsed(quick.parsed, file.name);
+
+    if (!quick.refineInput) return;
+
+    // If a better AI result arrives later, swap it in silently — but only
+    // if this is still the active request, the user hasn't already hit
+    // "Use this file", and the dialog is still open.
+    const refined = await refineResumeWithAI(quick.refineInput);
+    if (
+      unmountedRef.current ||
+      appliedRef.current ||
+      requestId !== requestIdRef.current
+    ) {
+      return;
+    }
+    if (refined && !parsedResumeIsEmpty(refined)) {
+      setParsed(refined);
+      setError("");
     }
   };
 
   const readPaste = () => {
+    appliedRef.current = false;
+    ++requestIdRef.current; // invalidate any in-flight file-mode AI refine
     setBusy(true);
     setError("");
     setParsed(null);
@@ -126,6 +174,7 @@ function UploadResumeDialogInner({ open, onClose }: UploadResumeDialogProps) {
 
   const apply = () => {
     if (!parsed) return;
+    appliedRef.current = true;
     const { id, applied } = applyParsedMaster(parsed);
     const highlight = applied
       .filter((item) =>
@@ -177,7 +226,7 @@ function UploadResumeDialogInner({ open, onClose }: UploadResumeDialogProps) {
           <input
             ref={inputRef}
             type="file"
-            accept={`${RESUME_ACCEPT},.zip,application/zip`}
+            accept={RESUME_ACCEPT}
             className="sr-only"
             onChange={(event) => {
               const file = event.target.files?.[0];
@@ -210,7 +259,7 @@ function UploadResumeDialogInner({ open, onClose }: UploadResumeDialogProps) {
               <FileUp size={22} className="text-brand" aria-hidden="true" />
             )}
             <span className="text-sm font-medium text-ink">
-              {busy ? "Reading the file…" : "Drop a file or browse"}
+              {busy ? "Parsing your resume…" : "Drop a file or browse"}
             </span>
             <span className="text-xs text-ink-subtle">
               .tex, Overleaf zip, .pdf, or .docx

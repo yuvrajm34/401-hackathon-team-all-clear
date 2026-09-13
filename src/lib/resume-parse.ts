@@ -138,17 +138,69 @@ const FAKE_TLDS = /^(js|ts|tsx|jsx|py|css|html|json|md|yml|yaml|c|h|java|rb|go)$
 
 const LOCATION_RE =
   /\b([A-Z][A-Za-z .'-]+,\s*(?:[A-Z]{2}|[A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+)?))(?:\s*\([^)]+\))?\b/;
-const TRAILING_CITY_RE =
-  /([A-Z][A-Za-z.'-]+(?:\s+[A-Z][A-Za-z.'-]+)*),\s*([A-Z]{2})\s*$/;
+
+/**
+ * Common countries, for recognizing a "City Country" header line with no
+ * comma (e.g. "Edmonton Canada") — `LOCATION_RE` alone requires a comma
+ * and misses this, which used to fall through and get misread as the
+ * headline. Not exhaustive; just common enough to catch the typical case.
+ */
+const COUNTRY_NAMES = new Set(
+  [
+    "canada",
+    "usa",
+    "us",
+    "united states",
+    "uk",
+    "united kingdom",
+    "england",
+    "scotland",
+    "ireland",
+    "india",
+    "australia",
+    "germany",
+    "france",
+    "spain",
+    "italy",
+    "mexico",
+    "brazil",
+    "china",
+    "japan",
+    "singapore",
+    "netherlands",
+    "sweden",
+    "switzerland",
+    "new zealand",
+  ].map((name) => name.toLowerCase()),
+);
+
+/**
+ * A short, capitalized-words line with no punctuation that ends in a known
+ * country name — the no-comma equivalent of `LOCATION_RE`. Reuses the same
+ * word-shape as `looksLikeName` (2-4 capitalized words) since a bare
+ * "City Country" line looks identical in shape to a person's name; the
+ * country-name check is what disambiguates it.
+ */
+function looksLikeBareLocation(line: string): boolean {
+  if (!looksLikeName(line)) return false;
+  const words = line.trim().split(/\s+/);
+  const lastWord = words.at(-1)?.toLowerCase() ?? "";
+  const lastTwoWords = words.slice(-2).join(" ").toLowerCase();
+  return COUNTRY_NAMES.has(lastWord) || COUNTRY_NAMES.has(lastTwoWords);
+}
 
 const DATE_TOKEN =
   "(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?|[0-3]?\\d)(?:[./\\s-]\\d{2,4})?|\\d{4}";
+// Separator between the two ends of a date range — either a dash of some
+// kind or the literal word "to" ("Jan 2024 to Present"), which is at least
+// as common on real resumes as an en/em dash.
+const DATE_SEP = "(?:[–—-]+|to)";
 const DATE_RANGE_RE = new RegExp(
-  `^(${DATE_TOKEN})\\s*[–—\\-–to]+\\s*(${DATE_TOKEN}|Present|Current|Now|Ongoing)$`,
+  `^(${DATE_TOKEN})\\s*${DATE_SEP}\\s*(${DATE_TOKEN}|Present|Current|Now|Ongoing)$`,
   "i",
 );
 const TRAILING_DATE_RE = new RegExp(
-  `\\s+(?:(Expected\\s+.+)|(?:(${DATE_TOKEN})\\s*[–—\\-]+\\s*(${DATE_TOKEN}|Present|Current|Now|Ongoing)))$`,
+  `\\s+(?:(Expected\\s+.+)|(?:(${DATE_TOKEN})\\s*${DATE_SEP}\\s*(${DATE_TOKEN}|Present|Current|Now|Ongoing)))$`,
   "i",
 );
 
@@ -330,24 +382,38 @@ function fillHeader(parsed: ParsedResume, headerLines: string[], fullText: strin
     ? headerLines.slice(headerLines.indexOf(nameLine) + 1)
     : headerLines;
 
+  // Location: try the precise "City, ST"/"City, Country" pattern first,
+  // then the no-comma "City Country" shape. Both are scoped to the header
+  // only — never the whole document, which is how a coincidental
+  // "Word, Word" pattern deep in the Skills or Summary section (e.g.
+  // "Java, Python") used to get misread as the candidate's location.
+  // Note: deliberately not excluding lines that also contain an email —
+  // "email | phone | Boston, MA" on one combined contact line is common,
+  // and LOCATION_RE's own shape (capitalized word + comma + state/country)
+  // doesn't false-match inside an email address.
+  const commaLocationLine = headerLines.find((line) => LOCATION_RE.test(line));
+  const bareLocationLine = !commaLocationLine
+    ? afterName.find((line) => !contactish(line) && looksLikeBareLocation(line))
+    : undefined;
+
+  if (commaLocationLine) {
+    const match = LOCATION_RE.exec(commaLocationLine);
+    parsed.profile.location = (match?.[1] ?? commaLocationLine).trim();
+  } else if (bareLocationLine) {
+    parsed.profile.location = bareLocationLine.trim();
+  }
+  const locationLine = commaLocationLine ?? bareLocationLine;
+
   const headline = afterName.find(
     (line) =>
+      line !== locationLine &&
       !contactish(line) &&
       !LOCATION_RE.test(line) &&
+      !looksLikeBareLocation(line) &&
       line.length < 80 &&
       !/^\d/.test(line),
   );
   if (headline) parsed.profile.headline = headline;
-
-  const locationLine = headerLines.find(
-    (line) => TRAILING_CITY_RE.test(line) && !EMAIL_RE.test(line),
-  );
-  if (locationLine) {
-    const match = TRAILING_CITY_RE.exec(locationLine);
-    parsed.profile.location = match
-      ? `${match[1]}, ${match[2]}`
-      : locationLine.trim();
-  }
 }
 
 function looksLikeName(line: string): boolean {
@@ -492,6 +558,15 @@ function splitSections(lines: string[]): Partial<Record<SectionKey, string[]>> {
 
   for (const raw of lines) {
     const section = sectionOf(raw);
+    if (section === "ignore") {
+      // A recognized header for something the schema has no field for
+      // (Hobbies, Volunteering, Certifications, ...). Stop collecting into
+      // whatever section came before it — without this, its content used
+      // to leak into the previous section (e.g. hobbies landing inside a
+      // bogus extra "education" entry) instead of just being dropped.
+      current = null;
+      continue;
+    }
     if (section) {
       current = section;
       buckets[current] ??= [];
@@ -504,13 +579,151 @@ function splitSections(lines: string[]): Partial<Record<SectionKey, string[]>> {
   return buckets;
 }
 
-function sectionOf(line: string): SectionKey | null {
+/**
+ * Substring stems for section headers the exact-match alias list doesn't
+ * cover — a fallback for wording like "Where I've Worked" or "Educational
+ * Background" that no fixed phrase list can fully enumerate. Deliberately
+ * conservative (only applied to short, heading-shaped lines in
+ * `sectionOf`) to avoid misclassifying ordinary body text.
+ */
+const SECTION_STEMS: Record<SectionKey, string[]> = {
+  summary: ["summar", "objective", "profile", "highlight", "qualificat"],
+  experience: ["experien", "employ", "work histor", "career", "worked"],
+  education: ["educat", "academ", "school", "degree", "universit", "colleg"],
+  projects: ["project"],
+  skills: [
+    "skill",
+    "technical",
+    "competenc",
+    "proficien",
+    "technolog",
+    "tech stack",
+    "expertise",
+  ],
+};
+
+/**
+ * Headers for content the schema has no field for. Recognizing these (and
+ * returning "ignore") matters just as much as recognizing real sections —
+ * without it, this content silently gets attributed to whatever section
+ * came before it (e.g. "Hobbies & Interests" landing inside a bogus extra
+ * Education entry) instead of being cleanly dropped.
+ */
+const IGNORED_SECTION_ALIASES = new Set([
+  "hobbies",
+  "hobbies and interests",
+  "hobbies & interests",
+  "interests",
+  "activities",
+  "extracurricular",
+  "extracurriculars",
+  "extracurricular activities",
+  "volunteer",
+  "volunteering",
+  "volunteer experience",
+  "certifications",
+  "certificates",
+  "awards",
+  "awards and honors",
+  "honors",
+  "honors and awards",
+  "publications",
+  "references",
+  "languages",
+  "leadership",
+]);
+const IGNORED_SECTION_STEMS = [
+  "hobbies",
+  "interest",
+  "extracurricular",
+  "volunteer",
+  "certif",
+  "publicat",
+  "reference",
+  "leadership",
+];
+
+function sectionOf(line: string): SectionKey | "ignore" | null {
   const cleaned = line
     .trim()
     .replace(/^[#*_=\-–—\s]+|[#*_=\-–—\s]+$/g, "")
     .replace(/:+$/, "")
     .toLowerCase();
-  return SECTION_ALIASES[cleaned] ?? null;
+  if (!cleaned) return null;
+
+  const exact = SECTION_ALIASES[cleaned];
+  if (exact) return exact;
+  if (IGNORED_SECTION_ALIASES.has(cleaned)) return "ignore";
+
+  // Fuzzy fallback: only for short, heading-shaped lines (a handful of
+  // words, no sentence-ending punctuation, no comma/dash/pipe) — a bullet
+  // or entry title line ("Northeastern University — Boston, MA") that
+  // happens to contain a stem word shouldn't be misread as a new section
+  // header. Real section headers essentially never contain that kind of
+  // punctuation; entry titles (school/company — location) almost always do.
+  if (cleaned.length > 40 || /[.!?,|—–]/.test(cleaned)) return null;
+  const wordCount = cleaned.split(/\s+/).filter(Boolean).length;
+  if (wordCount > 5) return null;
+
+  if (IGNORED_SECTION_STEMS.some((stem) => cleaned.includes(stem))) {
+    return "ignore";
+  }
+
+  for (const key of Object.keys(SECTION_STEMS) as SectionKey[]) {
+    if (SECTION_STEMS[key].some((stem) => cleaned.includes(stem))) {
+      return key;
+    }
+  }
+  return null;
+}
+
+/**
+ * Handles a job header stacked across three lines instead of one —
+ * "Company Name  Jan 2024 to Present" / "Job Title" / "City, ST" — rather
+ * than the usual single "Role — Company, Location" line. `splitRoleCompany`
+ * has no separator to work with here (no "—"/"|"/"at"), so it dumps the
+ * whole line into "role" with an empty "company" — the caller detects that
+ * shape (a trailing date but no company found) and hands off here so the
+ * real title on the next line isn't silently dropped as leftover text.
+ */
+function parseStackedHeader(
+  company: string,
+  rest: string[],
+  start: string,
+  end: string,
+): ParsedExperience | null {
+  const cleanedCompany = company.trim().replace(/[\s,—–|-]+$/, "");
+  if (!cleanedCompany) return null;
+
+  let remaining = [...rest];
+
+  const roleLine = remaining.find(
+    (line) =>
+      !BULLET_RE.test(line) && !DATE_RANGE_RE.test(line) && line.length < 60,
+  );
+  const role = roleLine ?? "";
+  if (roleLine) remaining = remaining.filter((line) => line !== roleLine);
+
+  const locationLine = remaining.find(
+    (line) =>
+      !BULLET_RE.test(line) &&
+      (LOCATION_RE.test(line) || looksLikeBareLocation(line)),
+  );
+  let location = "";
+  if (locationLine) {
+    const match = LOCATION_RE.exec(locationLine);
+    location = (match?.[1] ?? locationLine).trim();
+    remaining = remaining.filter((line) => line !== locationLine);
+  }
+
+  return {
+    role,
+    company: cleanedCompany,
+    location,
+    start,
+    end,
+    bullets: mergeWrappedBullets(remaining),
+  };
 }
 
 function parseExperience(lines: string[]): ParsedExperience[] {
@@ -521,6 +734,12 @@ function parseExperience(lines: string[]): ParsedExperience[] {
     const dated = peelInlineDate(title);
     const { role, company, location } = splitRoleCompany(dated.text);
     if (!role && !company) return [];
+
+    if (dated.start && !company) {
+      const stacked = parseStackedHeader(role, rest, dated.start, dated.end);
+      if (stacked) return [stacked];
+    }
+
     const { start, end, leftover } = peelDates(rest);
     return [
       {
@@ -627,7 +846,12 @@ function parseProjects(lines: string[]): ParsedProject[] {
 
 function parseSkills(lines: string[]): ParsedSkillGroup[] {
   const groups: ParsedSkillGroup[] = [];
-  for (const line of lines.map((item) => item.trim()).filter(Boolean)) {
+  for (const raw of lines.map((item) => item.trim()).filter(Boolean)) {
+    // Bulleted skill-group labels ("• Programming Languages: Java, Python")
+    // need the bullet stripped first — otherwise it becomes part of the
+    // captured label ("• Programming Languages" instead of "Programming
+    // Languages") since the label pattern itself has no bullet awareness.
+    const line = stripBullet(raw);
     const labeled = line.match(/^([^:]{1,40}):\s*(.+)$/);
     if (labeled) {
       const skills = splitSkills(labeled[2]);
@@ -659,11 +883,18 @@ function splitSkills(line: string): string[] {
  * Groups a section's lines into one array per entry.
  *
  * Blank lines always split. When `detectRunOn` is set, a chunk also splits
- * mid-stream when a new title-like line shows up after the entry already
- * has a bullet — PDF text extraction (unpdf/pdf.js) reconstructs line
- * breaks from glyph position, not paragraph markers, so the blank line that
- * would normally separate back-to-back entries is frequently lost. Without
- * this, two entries silently collapse into one and the second is dropped.
+ * mid-stream when a title-like line shows up with no blank line before it
+ * (e.g. two projects back-to-back with no gap in the source text — mainly
+ * relevant for DOCX/plain-text input, since PDF extraction now inserts
+ * real blank lines between entries using actual page geometry — see
+ * `reconstructTextFromLayout` in resume-extract.ts).
+ *
+ * Deliberately narrow: only `looksLikeNewEntryTitle` (a trailing
+ * parenthetical) counts as a boundary. An earlier version also treated
+ * *any* non-bullet line after a bullet as a new entry, which seemed safe
+ * but wasn't — a long bullet that simply wraps onto a second line is also
+ * "a non-bullet line after a bullet", and that broader rule was splitting
+ * ordinary wrapped bullets into bogus extra entries.
  */
 function chunkEntries(
   lines: string[],
@@ -671,12 +902,10 @@ function chunkEntries(
 ): string[][] {
   const chunks: string[][] = [];
   let current: string[] = [];
-  let sawBullet = false;
 
   const flush = () => {
     if (current.length) chunks.push(current);
     current = [];
-    sawBullet = false;
   };
 
   for (const raw of lines) {
@@ -693,29 +922,31 @@ function chunkEntries(
       current.length > 0 &&
       !isBullet &&
       !DATE_RANGE_RE.test(trimmed) &&
-      (sawBullet ||
-        looksLikeNewEntryTitle(trimmed) ||
-        looksLikeEntryHeading(trimmed))
+      (looksLikeNewEntryTitle(trimmed) || looksLikeEntryHeading(trimmed))
     ) {
       flush();
     }
 
     current.push(trimmed);
-    if (isBullet) sawBullet = true;
   }
   flush();
   return chunks;
 }
 
+/**
+ * A line that reads as a new entry's heading (has its own trailing date,
+ * e.g. "Acme Corp  Jan 2024 – Present") rather than a wrapped bullet
+ * continuation. Deliberately narrow — an earlier, broader version also
+ * matched any short capitalized sentence with no colon, which reintroduced
+ * exactly the bug `looksLikeNewEntryTitle`'s docstring warns about: an
+ * ordinary bullet that wraps onto a second line often *also* looks like
+ * "a short capitalized sentence", so that rule was splitting single roles
+ * into bogus fragmented entries. A trailing date is a much rarer, safer
+ * signal to anchor on.
+ */
 function looksLikeEntryHeading(line: string): boolean {
-  if (BULLET_RE.test(line)) return false;
-  if (looksLikeTechLine(line)) return false;
-  if (TRAILING_DATE_RE.test(line) || DATE_RANGE_RE.test(line)) return true;
-  return (
-    /^[A-Z][\w].{1,90}$/.test(line) &&
-    !line.includes(":") &&
-    line.split(/\s+/).length <= 12
-  );
+  if (BULLET_RE.test(line) || looksLikeTechLine(line)) return false;
+  return TRAILING_DATE_RE.test(line);
 }
 
 function looksLikeTechLine(line: string): boolean {
