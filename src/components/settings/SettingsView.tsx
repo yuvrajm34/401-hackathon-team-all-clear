@@ -205,7 +205,7 @@ function SettingsInner() {
                 onClick={() => setResetOpen(true)}
               >
                 <Trash2 size={14} aria-hidden="true" />
-                Delete everything
+                Delete Your Data
               </Button>
             </div>
 
