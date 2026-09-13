@@ -2,11 +2,11 @@
 
 import {
   ChevronDown,
+  Crown,
   Download,
   FileCode2,
   FilePlus2,
   FileText,
-  Printer,
   Target,
   Wand2,
 } from "lucide-react";
@@ -251,16 +251,25 @@ function MasterCard({ resume }: { resume: Resume }) {
             </span>
           </span>
 
-          <h2 className="mt-1 truncate text-lg font-semibold text-ink">
-            {resume.name}
-          </h2>
+          <div className="mt-1 flex min-w-0 items-center gap-1.5">
+            <h2 className="truncate text-lg font-semibold text-ink">
+              {resume.name}
+            </h2>
+            <span
+              className="shrink-0 text-accent"
+              aria-label="Master resume"
+              title="Master resume"
+            >
+              <Crown size={15} aria-hidden="true" />
+            </span>
+          </div>
 
           <div className="mt-3 flex flex-wrap gap-2">
             <ButtonLink href={`/resumes/${resume.id}`} size="sm">
               Open editor
             </ButtonLink>
             <UploadResumeButton size="sm" label="Replace from file" />
-            <MasterExportMenu resume={resume} />
+            <ResumeExportMenu resume={resume} />
           </div>
         </div>
       </PanelBody>
@@ -327,30 +336,15 @@ function TailoredCard({
           size="sm"
           className="flex-1"
         >
-          <Printer size={13} aria-hidden="true" />
           Open
         </ButtonLink>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => {
-            downloadTextFile(
-              `${slugify(resume.name)}.tex`,
-              resumeToLatex(resume),
-              "application/x-tex;charset=utf-8",
-            );
-            toast("LaTeX file downloaded");
-          }}
-        >
-          <FileCode2 size={13} aria-hidden="true" />
-          .tex
-        </Button>
+        <ResumeExportMenu resume={resume} />
       </div>
     </li>
   );
 }
 
-function MasterExportMenu({ resume }: { resume: Resume }) {
+function ResumeExportMenu({ resume }: { resume: Resume }) {
   const closeMenu = (target: HTMLElement) => {
     target.closest("details")?.removeAttribute("open");
   };

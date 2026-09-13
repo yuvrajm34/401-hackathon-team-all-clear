@@ -17,12 +17,13 @@ import {
 } from "@dnd-kit/sortable";
 import {
   ArrowLeft,
-  ClipboardCopy,
+  ChevronDown,
   Copy,
   Crown,
   Eye,
   Download,
   FileCode2,
+  FileText,
   Pencil,
   Trash2,
   Wand2,
@@ -34,14 +35,14 @@ import { useEffect, useMemo, useState } from "react";
 import { MatchPanel, MatchSummaryLink } from "@/components/applications/MatchPanel";
 import { Select } from "@/components/ui/Field";
 import { HydrationGate } from "@/components/layout/HydrationGate";
-import { Button, ButtonLink } from "@/components/ui/Button";
+import { Button, ButtonLink, buttonClasses } from "@/components/ui/Button";
 import { InlineTextArea, TextInput } from "@/components/ui/Field";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { ConfirmDialog } from "@/components/ui/SlideOver";
 import { toast } from "@/components/ui/Toaster";
 import { cn } from "@/lib/cn";
-import { copyToClipboard, downloadTextFile, slugify } from "@/lib/download";
-import { resumeToLatex, resumeToPlainText } from "@/lib/latex";
+import { downloadTextFile, slugify } from "@/lib/download";
+import { resumeToLatex } from "@/lib/latex";
 import {
   diffAgainstMaster,
   emptyDiff,
@@ -203,23 +204,6 @@ function ResumeDetailInner({ id }: { id: string }) {
     skills: () => <SkillsEditor resume={resume} master={master} diff={diff} />,
   };
 
-  const exportLatex = () => {
-    downloadTextFile(
-      `${slugify(resume.name)}.tex`,
-      resumeToLatex(resume),
-      "application/x-tex;charset=utf-8",
-    );
-    toast("LaTeX file downloaded — upload it to Overleaf");
-  };
-
-  const copyPlainText = async () => {
-    const copied = await copyToClipboard(resumeToPlainText(resume));
-    toast(
-      copied ? "Plain text resume copied" : "Could not access the clipboard",
-      copied ? "success" : "warning",
-    );
-  };
-
   return (
     <div className="space-y-4">
       <div className="print:hidden">
@@ -235,36 +219,30 @@ function ResumeDetailInner({ id }: { id: string }) {
       <header className="space-y-3 print:hidden">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <TextInput
-                value={resume.name}
-                aria-label="Resume name"
-                onChange={(event) => renameResume(resume.id, event.target.value)}
-                className="max-w-sm border-transparent bg-transparent px-1 text-lg font-semibold shadow-none hover:border-line"
-              />
-              {resume.isMaster ? (
-                <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-medium text-accent">
-                  <Crown size={11} aria-hidden="true" />
-                  Master
-                </span>
-              ) : null}
-            </div>
+            <TextInput
+              value={resume.name}
+              aria-label="Resume name"
+              onChange={(event) => renameResume(resume.id, event.target.value)}
+              className="max-w-sm border-transparent bg-transparent px-1 text-lg font-semibold shadow-none hover:border-line"
+            />
 
-            <p className="mt-1 px-1 text-xs text-ink-muted">
-              {resume.isMaster
-                ? "Keep everything here. Tailored copies start from this version."
-                : diff.totalChanges === 0
-                  ? "Identical to your master resume so far."
-                  : `${diff.totalChanges} change${
-                      diff.totalChanges === 1 ? "" : "s"
-                    } from the master version.`}
+            {!resume.isMaster || overOnePage ? (
+              <p className="mt-1 px-1 text-xs text-ink-muted">
+                {!resume.isMaster
+                  ? diff.totalChanges === 0
+                    ? "Identical to your master resume so far."
+                    : `${diff.totalChanges} change${
+                        diff.totalChanges === 1 ? "" : "s"
+                      } from the master version.`
+                  : null}
               {overOnePage ? (
                 <span className="ml-1 text-accent">
                   Roughly {Math.ceil(lineEstimate / 46)} pages — consider hiding
                   a few lines.
                 </span>
               ) : null}
-            </p>
+              </p>
+            ) : null}
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -277,35 +255,23 @@ function ResumeDetailInner({ id }: { id: string }) {
 
             {resume.isMaster ? (
               <>
-                <UploadResumeButton size="sm" label="Upload resume" />
-                <Button variant="secondary" onClick={() => setTailorOpen(true)}>
+                <UploadResumeButton size="md" label="Upload resume" />
+                <Button
+                  variant="secondary"
+                  size="md"
+                  onClick={() => setTailorOpen(true)}
+                >
                   <Wand2 size={14} aria-hidden="true" />
                   Tailor a copy
                 </Button>
               </>
             ) : null}
 
-            <Button
-              onClick={() => {
-                downloadResumePdf(resume);
-                toast("Resume PDF downloaded");
-              }}
-            >
-              <Download size={14} aria-hidden="true" />
-              Download PDF
-            </Button>
+            <ResumeExportMenu resume={resume} />
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="secondary" size="sm" onClick={exportLatex}>
-            <FileCode2 size={14} aria-hidden="true" />
-            Export .tex
-          </Button>
-          <Button variant="secondary" size="sm" onClick={copyPlainText}>
-            <ClipboardCopy size={14} aria-hidden="true" />
-            Copy as text
-          </Button>
           <Button
             variant="ghost"
             size="sm"
@@ -434,6 +400,57 @@ function ResumeDetailInner({ id }: { id: string }) {
   );
 }
 
+function ResumeExportMenu({ resume }: { resume: Resume }) {
+  const closeMenu = (target: HTMLElement) => {
+    target.closest("details")?.removeAttribute("open");
+  };
+
+  return (
+    <details className="relative">
+      <summary
+        className={buttonClasses({
+          size: "md",
+          className: "cursor-pointer list-none [&::-webkit-details-marker]:hidden",
+        })}
+      >
+        <Download size={14} aria-hidden="true" />
+        Export
+        <ChevronDown size={13} aria-hidden="true" />
+      </summary>
+      <div className="absolute right-0 z-20 mt-1 min-w-32 rounded-xl bg-surface-raised p-1 shadow-raised">
+        <button
+          type="button"
+          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-ink hover:bg-surface-muted"
+          onClick={(event) => {
+            downloadResumePdf(resume);
+            toast("Resume PDF downloaded");
+            closeMenu(event.currentTarget);
+          }}
+        >
+          <FileText size={14} aria-hidden="true" />
+          Export .pdf
+        </button>
+        <button
+          type="button"
+          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-ink hover:bg-surface-muted"
+          onClick={(event) => {
+            downloadTextFile(
+              `${slugify(resume.name)}.tex`,
+              resumeToLatex(resume),
+              "application/x-tex;charset=utf-8",
+            );
+            toast("LaTeX file downloaded — upload it to Overleaf");
+            closeMenu(event.currentTarget);
+          }}
+        >
+          <FileCode2 size={14} aria-hidden="true" />
+          Export .tex
+        </button>
+      </div>
+    </details>
+  );
+}
+
 function ResumeRoleCoach({ resume }: { resume: Resume }) {
   const applications = useAppStore((state) => state.applications);
   const withJd = useMemo(
@@ -462,7 +479,7 @@ function ResumeRoleCoach({ resume }: { resume: Resume }) {
       <div className="flex flex-wrap items-end gap-3">
         <label className="min-w-[12rem] flex-1 sm:max-w-sm">
           <span className="mb-1.5 block text-xs font-medium text-ink-muted">
-            Tailor against
+            Tailor For:
           </span>
           <Select
             value={selected.id}
