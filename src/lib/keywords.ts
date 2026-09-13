@@ -33,6 +33,49 @@ const STOPWORDS = new Set([
 ]);
 
 /**
+ * High-frequency posting jargon that is not something you would add to a
+ * skills line. Without this, "business / strategy / people" drown out
+ * React, TypeScript, and the actual stack.
+ */
+const FLUFF = new Set([
+  "ability","able","across","action","actions","acquired","acquisition","agency","agile",
+  "alignment","analytics","application","applications","apply","approach","area","areas",
+  "based","benefit","benefits","bonus","business","candidate","candidates","capacity",
+  "career","change","client","clients","close","collaborate","collaborating","collaboration",
+  "collaborative","communication","company","compensation","complex","compliance",
+  "computer","concept","concepts","continuous","contribute","contributing","contribution",
+  "core","create","creating","cross","culture","current","customer","customers",
+  "data","decision","decisions","degree","deliver","delivering","delivery","department",
+  "description","design","designer","designing","develop","developer","developers",
+  "developing","development","digital","diverse","diversity","drive","driven","driving",
+  "effective","effectively","employee","employees","employer","employment","enable",
+  "end","engineer","engineering","engineers","ensure","environment","equal","equity",
+  "excellent","execution","executive","expected","fast","field","focus","focused",
+  "function","functional","functions","future","global","goal","goals","growth",
+  "hand","hands","high","highly","hire","hiring","hours","human","identify","impact",
+  "improve","improvement","inclusive","inclusion","industry","information","innovation",
+  "innovative","integration","integrations","interested","internal","job","jobs",
+  "key","large","lead","leader","leaders","leadership","leading","learn","learning",
+  "level","life","location","locations","maintain","manage","management","manager",
+  "managing","market","marketing","member","members","mission","multiple","office",
+  "operate","operating","operation","operations","opportunity","opportunities",
+  "organization","organizational","orientated","oriented","outcome","outcomes",
+  "owner","ownership","pace","partner","partners","partnership","passion","passionate",
+  "people","perform","performance","person","pipeline","plan","planning","platform",
+  "platforms","please","position","positions","potential","practice","practices",
+  "preferred","process","processes","product","production","products","professional",
+  "program","programs","project","projects","provide","quality","range","related",
+  "relationship","relationships","report","reporting","required","requirement",
+  "responsible","result","results","resume","reward","rewards","salary","scale",
+  "science","self","service","services","set","skill","skills","software","solution",
+  "solutions","stakeholder","stakeholders","standard","standards","status","strategic",
+  "strategy","success","successful","system","systems","technical","technology",
+  "tools","total","understand","understanding","user","users","value","values",
+  "vision","world",
+  "infrastructure","integration",
+]);
+
+/**
  * Tokens worth surfacing even when they appear only once, and multi-word
  * phrases we want treated as a single keyword.
  */
@@ -70,24 +113,24 @@ const PRIORITY_PHRASES = [
 
 /** Terms that should never be dropped as "too short" or low frequency. */
 const TECH_VOCABULARY = new Set([
-  "accessibility","agile","algorithms","android","angular","ansible","api","apis","aws","azure",
-  "backend","bash","bigquery","c","c#","c++","caching","cassandra","cloud","cloudflare","css","cypress",
-  "d3","dart","databases","dbt","debugging","deployment","devops","django","docker","dynamodb",
+  "a11y","accessibility","algorithms","android","angular","ansible","api","apis","aws","azure",
+  "backend","bash","bigquery","c","c#","c++","caching","cassandra","ci","cicd","cloudflare","css","cypress",
+  "d3","dart","dbt","devops","django","docker","dynamodb",
   "elasticsearch","elixir","ember","etl","express",
   "fastapi","figma","firebase","flask","flutter","frontend","fullstack",
-  "gcp","git","go","golang","grafana","graphql","grpc","gts",
+  "gcp","git","github","gitlab","go","golang","grafana","graphql","grpc",
   "hadoop","haskell","html","http",
-  "ios","infrastructure","integration","java","javascript","jenkins","jest","jira","jquery","json","junit",
-  "kafka","kotlin","kubernetes",
-  "laravel","latency","linux","lua",
-  "mariadb","matlab","microservices","migration","mobile","mongodb","monitoring","mysql",
-  "nestjs","networking","nextjs","nginx","nosql","numpy",
-  "observability","oop","opentelemetry","optimization","optimisation","oracle",
-  "pandas","performance","perl","php","playwright","postgres","postgresql","prisma","profiling","prometheus","pytest","python","pytorch",
-  "r","rails","react","redis","redux","refactoring","reliability","rest","ruby","rust",
-  "saas","salesforce","scala","scalability","scss","security","selenium","serverless","shell","snowflake","spark","sql","sqlite","sre","storybook","svelte","swift","swiftui",
-  "tableau","tailwind","tensorflow","terraform","testing","tests","typescript",
-  "ui","unix","ux",
+  "ios","java","javascript","jenkins","jest","jira","jquery","json","junit",
+  "k8s","kafka","kotlin","kubernetes",
+  "laravel","linux","lua",
+  "mariadb","matlab","microservices","mongodb","mysql",
+  "nestjs","nextjs","nginx","nodejs","nosql","numpy",
+  "observability","ollama","oop","opentelemetry","oracle",
+  "pandas","perl","php","playwright","postgres","postgresql","prisma","prometheus","pytest","python","pytorch",
+  "rails","react","redis","redux","rest","ruby","rust",
+  "salesforce","scala","scss","selenium","serverless","snowflake","spark","sql","sqlite","sre","storybook","svelte","swift","swiftui",
+  "tableau","tailwind","tensorflow","terraform","typescript",
+  "unix",
   "vue","vitest",
   "wcag","webpack","websockets",
   "xml","yaml",
@@ -155,6 +198,18 @@ function normalize(text: string): string {
     .trim();
 }
 
+/** Stack tokens ATS filters actually care about: languages, tools, APIs. */
+function looksLikeTool(token: string): boolean {
+  if (token.length < 2) return false;
+  if (FLUFF.has(token) || STOPWORDS.has(token)) return false;
+  if (/[#++.]/.test(token)) return true;
+  if (/\d/.test(token) && /[a-z]/.test(token)) return true;
+  if (token.endsWith("js") || token.endsWith("sql") || token.endsWith("db")) {
+    return token.length >= 3;
+  }
+  return false;
+}
+
 function tokenize(normalized: string): string[] {
   return normalized
     .split(" ")
@@ -179,19 +234,25 @@ export function extractKeywords(jobDescription: string, limit = 28): KeywordHit[
   }
 
   for (const token of tokenize(normalized)) {
-    if (STOPWORDS.has(token)) continue;
+    if (FLUFF.has(token)) continue;
+    if (STOPWORDS.has(token) && !TECH_VOCABULARY.has(token)) continue;
     if (token.length < 2) continue;
     if (/^\d+$/.test(token)) continue;
 
     const isTech = TECH_VOCABULARY.has(token);
-    if (!isTech && token.length < 4) continue;
+    if (!isTech && !looksLikeTool(token)) continue;
 
     weights.set(token, (weights.get(token) ?? 0) + (isTech ? 2 : 1));
   }
 
-  // Drop single-mention generic words; keep anything technical.
   const ranked = [...weights.entries()]
-    .filter(([keyword, weight]) => weight > 1 || TECH_VOCABULARY.has(keyword))
+    .filter(
+      ([keyword, weight]) =>
+        TECH_VOCABULARY.has(keyword) ||
+        PRIORITY_PHRASES.includes(keyword) ||
+        looksLikeTool(keyword) ||
+        weight >= 3,
+    )
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
     .slice(0, limit);
 

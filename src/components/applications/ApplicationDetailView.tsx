@@ -36,6 +36,7 @@ import type { Stage } from "@/lib/types";
 import { useAppStore } from "@/store/useAppStore";
 
 import { ApplicationForm } from "./ApplicationForm";
+import { JobDescriptionBody } from "./JobDescriptionBody";
 import { CommunicationLog } from "./CommunicationLog";
 import { FollowUpCard } from "./FollowUpCard";
 import { JobPostingPreview } from "./JobPostingPreview";
@@ -291,9 +292,7 @@ function ApplicationDetailInner({ id }: { id: string }) {
             />
             <PanelBody>
               {application.jobDescription ? (
-                <div className="scrollbar-slim max-h-72 overflow-x-hidden overflow-y-auto whitespace-pre-wrap break-words text-xs leading-relaxed text-ink-muted">
-                  {application.jobDescription}
-                </div>
+                <JobDescriptionBody text={application.jobDescription} />
               ) : (
                 <p className="text-xs text-ink-subtle">
                   Nothing saved yet.

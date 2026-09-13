@@ -12,10 +12,10 @@ import { Button } from "@/components/ui/Button";
 import {
   Field,
   LabeledInput,
-  LabeledSelect,
   LabeledTextArea,
   Select,
 } from "@/components/ui/Field";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { SlideOver } from "@/components/ui/SlideOver";
 import { TagInput } from "@/components/ui/TagInput";
 import { toast } from "@/components/ui/Toaster";
@@ -264,17 +264,20 @@ function ApplicationFormFields({
             value={form.location}
             onChange={(event) => set("location", event.target.value)}
           />
-          <LabeledSelect
-            label="Work mode"
-            value={form.workMode}
-            onChange={(event) => set("workMode", event.target.value as WorkMode)}
-          >
-            {Object.entries(WORK_MODE_LABELS).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </LabeledSelect>
+          <Field label="Work mode">
+            <SegmentedControl<WorkMode>
+              ariaLabel="Work mode"
+              className="flex w-full flex-wrap"
+              value={form.workMode}
+              onChange={(value) => set("workMode", value)}
+              segments={(
+                Object.entries(WORK_MODE_LABELS) as [WorkMode, string][]
+              ).map(([value, label]) => ({
+                value,
+                label: value === "onsite" ? "On-site" : label,
+              }))}
+            />
+          </Field>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">

@@ -118,11 +118,13 @@ export const CHANNEL_LABELS = {
 } as const;
 
 export const WORK_MODE_LABELS = {
-  onsite: "On-site",
+  onsite: "On-site / office",
   hybrid: "Hybrid",
   remote: "Remote",
   unknown: "Not specified",
 } as const;
+
+export const WORK_MODE_FILTERS = ["onsite", "hybrid", "remote"] as const;
 
 export const PRIORITY_LABELS: Record<1 | 2 | 3, string> = {
   1: "Low",

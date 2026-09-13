@@ -114,8 +114,8 @@ export function MatchPanel({
   return (
     <Panel>
       <PanelHeader
-        title="Keyword match"
-        description="How closely the linked resume echoes this posting."
+        title="Skills match"
+        description="Tools, languages, and stack terms this posting actually names — not generic job-ad filler."
       />
       <PanelBody>
         {!hasJobDescription ? (

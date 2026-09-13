@@ -137,7 +137,7 @@ export function familyOf(job: BoardJob): JobFamily {
  * A concrete city is treated as onsite; the user can correct it after import,
  * and plenty of "onsite" roles turn out to be hybrid.
  */
-function workModeOf(job: BoardJob): JobListing["workMode"] {
+export function workModeOf(job: BoardJob): JobListing["workMode"] {
   const location = locationOf(job).toLowerCase();
   if (!location) return "unknown";
   if (location.includes("remote")) return "remote";

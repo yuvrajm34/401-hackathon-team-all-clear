@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  Inbox,
-  List,
-  Search,
-  SquareKanban,
-  X,
-} from "lucide-react";
+import { Inbox, List, SquareKanban } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { HydrationGate } from "@/components/layout/HydrationGate";
@@ -14,7 +8,6 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
-import { TextInput } from "@/components/ui/Field";
 import { toast } from "@/components/ui/Toaster";
 import { cn } from "@/lib/cn";
 import { todayIso } from "@/lib/dates";
@@ -48,42 +41,12 @@ function ApplicationsViewInner() {
   const loadDemoData = useAppStore((state) => state.loadDemoData);
 
   const [view, setView] = useState<ViewMode>("board");
-  const [query, setQuery] = useState("");
   const [stageFilter, setStageFilter] = useState<Stage | "all">("all");
-  const [tagFilter, setTagFilter] = useState<string | null>(null);
-
-  const allTags = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const application of applications) {
-      for (const tag of application.tags) {
-        counts.set(tag, (counts.get(tag) ?? 0) + 1);
-      }
-    }
-    return [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([tag]) => tag);
-  }, [applications]);
 
   const filtered = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-
-    return applications.filter((application) => {
-      if (stageFilter !== "all" && application.stage !== stageFilter) {
-        return false;
-      }
-      if (tagFilter && !application.tags.includes(tagFilter)) return false;
-      if (!needle) return true;
-
-      return [
-        application.company,
-        application.position,
-        application.location,
-        application.notes,
-        ...application.tags,
-      ]
-        .join(" ")
-        .toLowerCase()
-        .includes(needle);
-    });
-  }, [applications, query, stageFilter, tagFilter]);
+    if (stageFilter === "all") return applications;
+    return applications.filter((application) => application.stage === stageFilter);
+  }, [applications, stageFilter]);
 
   const metaFor = (application: Application): ApplicationCardMeta => ({
     messages: communications.filter((c) => c.applicationId === application.id)
@@ -107,8 +70,6 @@ function ApplicationsViewInner() {
       toast(`${application.company} moved to ${STAGE_META[stage].label}`);
     }
   };
-
-  const filtersActive = query.trim() !== "" || stageFilter !== "all" || tagFilter;
 
   if (applications.length === 0) {
     return (
@@ -171,84 +132,36 @@ function ApplicationsViewInner() {
         }
       />
 
-      <div className="mb-4 space-y-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative min-w-0 flex-1 sm:max-w-xs">
-            <Search
-              size={15}
-              aria-hidden="true"
-              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-subtle"
-            />
-            <TextInput
-              type="search"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search company, role, notes"
-              aria-label="Search applications"
-              className="pl-9"
-            />
-          </div>
-
-          {filtersActive ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setQuery("");
-                setStageFilter("all");
-                setTagFilter(null);
-              }}
-            >
-              <X size={14} aria-hidden="true" />
-              Clear filters
-            </Button>
-          ) : null}
-        </div>
-
-        <div className="flex flex-wrap items-center gap-1.5">
+      <div className="mb-4 flex flex-wrap items-center gap-1.5">
+        <FilterChip
+          active={stageFilter === "all"}
+          onClick={() => setStageFilter("all")}
+        >
+          All stages
+        </FilterChip>
+        {STAGES.map((stage) => (
           <FilterChip
-            active={stageFilter === "all"}
-            onClick={() => setStageFilter("all")}
+            key={stage}
+            active={stageFilter === stage}
+            onClick={() => setStageFilter(stage)}
           >
-            All stages
-          </FilterChip>
-          {STAGES.map((stage) => (
-            <FilterChip
-              key={stage}
-              active={stageFilter === stage}
-              onClick={() => setStageFilter(stage)}
-            >
-              {STAGE_META[stage].label}
-              <span className="ml-1 text-ink-subtle">
-                {applications.filter((a) => a.stage === stage).length}
-              </span>
-            </FilterChip>
-          ))}
-        </div>
-
-        {allTags.length > 0 ? (
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[11px] uppercase tracking-wide text-ink-subtle">
-              Tags
+            {STAGE_META[stage].label}
+            <span className="ml-1 text-ink-subtle">
+              {applications.filter((a) => a.stage === stage).length}
             </span>
-            {allTags.map((tag) => (
-              <FilterChip
-                key={tag}
-                active={tagFilter === tag}
-                onClick={() => setTagFilter(tagFilter === tag ? null : tag)}
-              >
-                {tag}
-              </FilterChip>
-            ))}
-          </div>
-        ) : null}
+          </FilterChip>
+        ))}
       </div>
 
       {filtered.length === 0 ? (
         <EmptyState
-          icon={<Search size={20} aria-hidden="true" />}
-          title="Nothing matches those filters"
-          description="Try a different search term or clear the filters to see the whole pipeline."
+          icon={<Inbox size={20} aria-hidden="true" />}
+          title={
+            stageFilter === "all"
+              ? "Nothing to show"
+              : `Nothing in ${STAGE_META[stageFilter].label}`
+          }
+          description="Move a card here from the board, or pick another stage."
         />
       ) : view === "board" ? (
         <KanbanBoard

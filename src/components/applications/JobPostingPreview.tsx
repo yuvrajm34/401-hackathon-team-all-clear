@@ -9,6 +9,7 @@ import { WORK_MODE_LABELS } from "@/lib/stages";
 import type { JobListing } from "@/lib/jobs/types";
 import type { Application, Resume } from "@/lib/types";
 
+import { JobDescriptionBody } from "./JobDescriptionBody";
 import { MatchPanel } from "./MatchPanel";
 
 /**
@@ -110,9 +111,7 @@ export function JobPostingPreview({
             />
             <PanelBody>
               {listing.description ? (
-                <div className="whitespace-pre-wrap break-words text-xs leading-relaxed text-ink-muted">
-                  {listing.description}
-                </div>
+                <JobDescriptionBody text={listing.description} />
               ) : (
                 <p className="text-xs text-ink-subtle">
                   No description came with this posting. Open it on the

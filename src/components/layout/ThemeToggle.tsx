@@ -1,80 +1,75 @@
 "use client";
 
-import { Monitor, Moon, Sun } from "lucide-react";
+import { Moon, Sun } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import { cn } from "@/lib/cn";
-import type { ThemePreference } from "@/lib/types";
 import { DEFAULT_SETTINGS, useAppStore } from "@/store/useAppStore";
 import { useHydrated } from "@/store/useHydrated";
 
-const OPTIONS: {
-  value: ThemePreference;
-  label: string;
-  icon: typeof Sun;
-}[] = [
-  { value: "light", label: "Light", icon: Sun },
-  { value: "dark", label: "Dark", icon: Moon },
-  { value: "system", label: "System", icon: Monitor },
-];
+function prefersDark(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    window.matchMedia("(prefers-color-scheme: dark)").matches
+  );
+}
 
-export function ThemeToggle({ compact = false }: { compact?: boolean }) {
+export function ThemeToggle() {
   const storedTheme = useAppStore((state) => state.settings.theme);
   const updateSettings = useAppStore((state) => state.updateSettings);
   const hydrated = useHydrated();
+  const [systemDark, setSystemDark] = useState(false);
 
-  // This control lives in the app shell, outside any HydrationGate, so it has
-  // to fall back to the default until localStorage has been read. Otherwise the
-  // server would render "dark" while the client renders the saved preference.
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const sync = () => setSystemDark(media.matches);
+    sync();
+    media.addEventListener("change", sync);
+    return () => media.removeEventListener("change", sync);
+  }, []);
+
   const theme = hydrated ? storedTheme : DEFAULT_SETTINGS.theme;
-
-  if (compact) {
-    // Cycles light -> dark -> system to keep the mobile header to one button.
-    const index = OPTIONS.findIndex((option) => option.value === theme);
-    const current = OPTIONS[index === -1 ? 2 : index];
-    const next = OPTIONS[(index + 1) % OPTIONS.length];
-    const Icon = current.icon;
-
-    return (
-      <button
-        type="button"
-        onClick={() => updateSettings({ theme: next.value })}
-        aria-label={`Theme: ${current.label}. Switch to ${next.label}.`}
-        className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-muted text-ink-muted transition hover:bg-brand-soft hover:text-brand-on-soft"
-      >
-        <Icon size={16} aria-hidden="true" />
-      </button>
-    );
-  }
+  const isDark =
+    theme === "dark" || (theme === "system" && (hydrated ? systemDark : prefersDark()));
 
   return (
     <div
       role="radiogroup"
       aria-label="Colour theme"
-      className="flex items-center gap-0.5 rounded-full bg-surface-muted p-1"
+      className="flex items-center gap-0.5 rounded-full bg-surface/90 p-1 shadow-card backdrop-blur-xl"
     >
-      {OPTIONS.map((option) => {
-        const Icon = option.icon;
-        const active = theme === option.value;
-        return (
-          <button
-            key={option.value}
-            type="button"
-            role="radio"
-            aria-checked={active}
-            title={option.label}
-            onClick={() => updateSettings({ theme: option.value })}
-            className={cn(
-              "flex h-7 flex-1 items-center justify-center rounded-full transition",
-              active
-                ? "bg-surface text-ink shadow-card"
-                : "text-ink-subtle hover:text-ink",
-            )}
-          >
-            <Icon size={14} aria-hidden="true" />
-            <span className="sr-only">{option.label}</span>
-          </button>
-        );
-      })}
+      <button
+        type="button"
+        role="radio"
+        aria-checked={!isDark}
+        title="Light"
+        onClick={() => updateSettings({ theme: "light" })}
+        className={cn(
+          "flex h-8 w-8 items-center justify-center rounded-full transition",
+          !isDark
+            ? "bg-surface text-ink shadow-card"
+            : "text-ink-subtle hover:text-ink",
+        )}
+      >
+        <Sun size={14} aria-hidden="true" />
+        <span className="sr-only">Light</span>
+      </button>
+      <button
+        type="button"
+        role="radio"
+        aria-checked={isDark}
+        title="Dark"
+        onClick={() => updateSettings({ theme: "dark" })}
+        className={cn(
+          "flex h-8 w-8 items-center justify-center rounded-full transition",
+          isDark
+            ? "bg-surface text-ink shadow-card"
+            : "text-ink-subtle hover:text-ink",
+        )}
+      >
+        <Moon size={14} aria-hidden="true" />
+        <span className="sr-only">Dark</span>
+      </button>
     </div>
   );
 }

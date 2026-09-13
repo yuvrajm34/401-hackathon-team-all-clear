@@ -16,13 +16,14 @@ import { COMPANY_SLUGS, findCompany } from "@/lib/jobs/companies";
 import { JOB_FAMILIES, type JobFamily } from "@/lib/jobs/families";
 import {
   familyOf,
-  isRemote,
   loadBoards,
   postedAtOf,
   searchTextOf,
   toJobListing,
+  workModeOf,
   type BoardJob,
 } from "@/lib/jobs/greenhouse";
+import type { WorkMode } from "@/lib/types";
 import {
   listingIsWithinPostedWindow,
   parsePostedWindow,
@@ -36,7 +37,13 @@ export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
 
   const query = params.get("q")?.trim().toLowerCase() ?? "";
-  const remoteOnly = params.get("remote") === "1";
+  const requestedMode = params.get("mode") ?? (params.get("remote") === "1" ? "remote" : "");
+  const workMode: WorkMode | null =
+    requestedMode === "onsite" ||
+    requestedMode === "hybrid" ||
+    requestedMode === "remote"
+      ? requestedMode
+      : null;
 
   const requestedFamily = params.get("family");
   const family = JOB_FAMILIES.includes(requestedFamily as JobFamily)
@@ -66,7 +73,7 @@ export async function GET(request: NextRequest) {
   }
 
   const matchesSearch = (job: BoardJob) => {
-    if (remoteOnly && !isRemote(job)) return false;
+    if (workMode && workModeOf(job) !== workMode) return false;
     if (!listingIsWithinPostedWindow(postedAtOf(job), posted)) return false;
     if (!query) return true;
     return searchTextOf(job).includes(query);

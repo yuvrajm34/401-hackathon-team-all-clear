@@ -31,7 +31,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
-import { MatchSummaryLink } from "@/components/applications/MatchPanel";
+import { MatchPanel, MatchSummaryLink } from "@/components/applications/MatchPanel";
+import { Select } from "@/components/ui/Field";
 import { HydrationGate } from "@/components/layout/HydrationGate";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { InlineTextArea, TextInput } from "@/components/ui/Field";
@@ -48,7 +49,7 @@ import {
   getSectionOrder,
 } from "@/lib/resume";
 import { downloadResumePdf } from "@/lib/resume-pdf";
-import type { ResumeSectionKey } from "@/lib/types";
+import type { Resume, ResumeSectionKey } from "@/lib/types";
 import { useAppStore } from "@/store/useAppStore";
 
 import { ResumePreview } from "./ResumePreview";
@@ -363,6 +364,8 @@ function ResumeDetailInner({ id }: { id: string }) {
         </div>
       </header>
 
+      <ResumeRoleCoach resume={resume} />
+
       <div className="print-resume-grid grid gap-4 lg:grid-cols-2 lg:items-start">
         <div
           data-print="hide"
@@ -427,6 +430,58 @@ function ResumeDetailInner({ id }: { id: string }) {
           router.push("/resumes");
         }}
       />
+    </div>
+  );
+}
+
+function ResumeRoleCoach({ resume }: { resume: Resume }) {
+  const applications = useAppStore((state) => state.applications);
+  const withJd = useMemo(
+    () => applications.filter((item) => item.jobDescription.trim().length > 0),
+    [applications],
+  );
+  const [compareId, setCompareId] = useState(
+    () => resume.targetApplicationId ?? "",
+  );
+  const selected =
+    withJd.find((item) => item.id === compareId) ??
+    withJd.find((item) => item.id === resume.targetApplicationId) ??
+    withJd[0];
+
+  if (!selected) {
+    return (
+      <p className="print:hidden rounded-2xl bg-surface-muted/70 px-4 py-3 text-xs text-ink-muted">
+        Paste a job description on an application to score this resume and get
+        AI tailoring suggestions while you edit.
+      </p>
+    );
+  }
+
+  return (
+    <div className="print:hidden space-y-3">
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="min-w-[12rem] flex-1 sm:max-w-sm">
+          <span className="mb-1.5 block text-xs font-medium text-ink-muted">
+            Tailor against
+          </span>
+          <Select
+            value={selected.id}
+            onChange={(event) => setCompareId(event.target.value)}
+            aria-label="Application to compare this resume against"
+          >
+            {withJd.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.company} — {item.position}
+              </option>
+            ))}
+          </Select>
+        </label>
+        <p className="pb-2 text-[11px] text-ink-subtle">
+          Score and AI suggestions sit here so you can edit the resume in the
+          same view. Nothing is rewritten automatically.
+        </p>
+      </div>
+      <MatchPanel key={selected.id} application={selected} resume={resume} />
     </div>
   );
 }

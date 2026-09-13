@@ -37,7 +37,15 @@ import type { JobListing } from "@/lib/jobs/types";
 import { useJobSearch } from "@/lib/jobs/useJobSearch";
 import { normalizeUrl } from "@/lib/jobs/url";
 import { resumeText } from "@/lib/resume";
+import { WORK_MODE_FILTERS } from "@/lib/stages";
+import type { WorkMode } from "@/lib/types";
 import { selectMasterResume, useAppStore } from "@/store/useAppStore";
+
+const WORK_MODE_CHIP: Record<(typeof WORK_MODE_FILTERS)[number], string> = {
+  onsite: "On-site",
+  hybrid: "Hybrid",
+  remote: "Remote",
+};
 
 import { DiscoverResumeDock } from "./DiscoverResumeDock";
 import { JobCard } from "./JobCard";
@@ -79,7 +87,7 @@ function DiscoverViewInner() {
   const [query, setQuery] = useState("");
   const [company, setCompany] = useState("all");
   const [family, setFamily] = useState<JobFamily | null>(null);
-  const [remoteOnly, setRemoteOnly] = useState(false);
+  const [workMode, setWorkMode] = useState<WorkMode | "all">("all");
   const [posted, setPosted] = useState<PostedWindow>(DEFAULT_POSTED_WINDOW);
   // Default to sorting by match once a master resume exists to score
   // against — otherwise there's nothing to match on, so newest is the only
@@ -99,12 +107,12 @@ function DiscoverViewInner() {
     if (debouncedQuery) params.set("q", debouncedQuery);
     if (company !== "all") params.set("company", company);
     if (family) params.set("family", family);
-    if (remoteOnly) params.set("remote", "1");
+    if (workMode !== "all") params.set("mode", workMode);
     const postedParam = postedWindowParam(posted);
     if (postedParam) params.set("posted", postedParam);
     if (page > 1) params.set("page", String(page));
     return params.toString();
-  }, [debouncedQuery, company, family, remoteOnly, posted, page]);
+  }, [debouncedQuery, company, family, workMode, posted, page]);
 
   const { data, error, loading } = useJobSearch(queryString, retry);
 
@@ -125,14 +133,14 @@ function DiscoverViewInner() {
     if (!includeDemoJobs || company !== "all") return [];
     const needle = debouncedQuery.toLowerCase();
     return buildDemoJobListings().filter((job) => {
-      if (remoteOnly && job.workMode !== "remote") return false;
+      if (workMode !== "all" && job.workMode !== workMode) return false;
       if (!listingIsWithinPostedWindow(job.postedAt, posted)) return false;
       if (!needle) return true;
       return `${job.position} ${job.company} ${job.location} ${job.department}`
         .toLowerCase()
         .includes(needle);
     });
-  }, [includeDemoJobs, company, remoteOnly, posted, debouncedQuery]);
+  }, [includeDemoJobs, company, workMode, posted, debouncedQuery]);
 
   const visibleDemo = useMemo(
     () =>
@@ -273,7 +281,7 @@ function DiscoverViewInner() {
     query.trim() !== "" ||
     company !== "all" ||
     family !== null ||
-    remoteOnly ||
+    workMode !== "all" ||
     posted !== DEFAULT_POSTED_WINDOW;
 
   return (
@@ -343,23 +351,6 @@ function DiscoverViewInner() {
             ))}
           </Select>
 
-          <button
-            type="button"
-            aria-pressed={remoteOnly}
-            onClick={() => {
-              setRemoteOnly((current) => !current);
-              setPage(1);
-            }}
-            className={cn(
-              "chip-tone rounded-full px-2.5 py-1 text-xs font-medium",
-              remoteOnly
-                ? "bg-brand-soft text-brand-on-soft"
-                : "bg-surface-muted text-ink-muted hover:text-ink",
-            )}
-          >
-            Remote only
-          </button>
-
           <SegmentedControl<string>
             ariaLabel="Posted date"
             value={postedWindowParam(posted)}
@@ -381,7 +372,7 @@ function DiscoverViewInner() {
                 setQuery("");
                 setCompany("all");
                 setFamily(null);
-                setRemoteOnly(false);
+                setWorkMode("all");
                 setPosted(DEFAULT_POSTED_WINDOW);
                 setPage(1);
               }}
@@ -390,6 +381,30 @@ function DiscoverViewInner() {
               Clear filters
             </Button>
           ) : null}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-1.5">
+          <FilterChip
+            active={workMode === "all"}
+            onClick={() => {
+              setWorkMode("all");
+              setPage(1);
+            }}
+          >
+            Any workplace
+          </FilterChip>
+          {WORK_MODE_FILTERS.map((mode) => (
+            <FilterChip
+              key={mode}
+              active={workMode === mode}
+              onClick={() => {
+                setWorkMode(mode);
+                setPage(1);
+              }}
+            >
+              {WORK_MODE_CHIP[mode]}
+            </FilterChip>
+          ))}
         </div>
 
         <div className="flex flex-wrap items-center gap-1.5">
