@@ -27,6 +27,7 @@ import { buildMatchReport } from "@/lib/keywords";
 import { resumeText } from "@/lib/resume";
 import { selectMasterResume, useAppStore } from "@/store/useAppStore";
 
+import { DiscoverResumeDock } from "./DiscoverResumeDock";
 import { JobCard } from "./JobCard";
 
 type SortMode = "newest" | "match";
@@ -53,8 +54,10 @@ function useDebounced<T>(value: T, delay: number): T {
 
 function DiscoverViewInner() {
   const applications = useAppStore((state) => state.applications);
+  const resumes = useAppStore((state) => state.resumes);
   const master = useAppStore(selectMasterResume);
   const importJobListing = useAppStore((state) => state.importJobListing);
+  const tailorResume = useAppStore((state) => state.tailorResume);
 
   const [query, setQuery] = useState("");
   const [company, setCompany] = useState("all");
@@ -62,6 +65,8 @@ function DiscoverViewInner() {
   const [remoteOnly, setRemoteOnly] = useState(false);
   const [sort, setSort] = useState<SortMode>("newest");
   const [page, setPage] = useState(1);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [resumeListing, setResumeListing] = useState<JobListing | null>(null);
 
   /** Bumped to re-run the search when nothing about the filters changed. */
   const [retry, setRetry] = useState(0);
@@ -169,6 +174,72 @@ function DiscoverViewInner() {
     }
   };
 
+  const tailoredByUrl = useMemo(() => {
+    const urls = new Set<string>();
+    for (const application of applications) {
+      if (!application.url || !application.resumeId) continue;
+      const resume = resumes.find((item) => item.id === application.resumeId);
+      if (resume && !resume.isMaster) {
+        urls.add(normalizeUrl(application.url));
+      }
+    }
+    for (const resume of resumes) {
+      if (resume.isMaster || !resume.targetApplicationId) continue;
+      const application = applications.find(
+        (item) => item.id === resume.targetApplicationId,
+      );
+      if (application?.url) urls.add(normalizeUrl(application.url));
+    }
+    return urls;
+  }, [applications, resumes]);
+
+  const handleOpenResume = (listing: JobListing) => {
+    setResumeListing(listing);
+    if (!master) return;
+
+    const target = normalizeUrl(listing.url);
+    const existing = applications.find(
+      (application) =>
+        application.url && normalizeUrl(application.url) === target,
+    );
+    const applicationId = existing?.id ?? importJobListing(listing);
+    const application =
+      existing ??
+      (applicationId
+        ? useAppStore
+            .getState()
+            .applications.find((item) => item.id === applicationId)
+        : undefined);
+
+    if (!application) return;
+
+    const alreadyTailored =
+      (application.resumeId &&
+        resumes.some(
+          (resume) => resume.id === application.resumeId && !resume.isMaster,
+        )) ||
+      resumes.some(
+        (resume) =>
+          resume.targetApplicationId === application.id && !resume.isMaster,
+      );
+
+    if (alreadyTailored) return;
+
+    const created = tailorResume({
+      masterId: master.id,
+      applicationId: application.id,
+      name: `${listing.company} — ${listing.position}`,
+    });
+
+    if (created) {
+      toast(
+        existing
+          ? `Started a tailored resume for ${listing.company}`
+          : `Saved to wishlist and started a tailored resume`,
+      );
+    }
+  };
+
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
   const filtersActive =
     query.trim() !== "" || company !== "all" || family !== null || remoteOnly;
@@ -210,6 +281,7 @@ function DiscoverViewInner() {
               onChange={(event) => {
                 setQuery(event.target.value);
                 setPage(1);
+                setExpandedId(null);
               }}
               placeholder="Search role, team, or city"
               aria-label="Search job postings"
@@ -354,10 +426,26 @@ function DiscoverViewInner() {
                 listing={listing}
                 score={score}
                 tracked={trackedUrls.has(normalizeUrl(listing.url))}
+                expanded={expandedId === listing.id}
+                masterText={masterText}
+                hasMaster={Boolean(master)}
+                hasTailored={tailoredByUrl.has(normalizeUrl(listing.url))}
+                onToggle={() =>
+                  setExpandedId((current) =>
+                    current === listing.id ? null : listing.id,
+                  )
+                }
                 onAdd={() => handleAdd(listing)}
+                onOpenResume={() => handleOpenResume(listing)}
               />
             ))}
           </div>
+
+          <DiscoverResumeDock
+            listing={resumeListing}
+            open={resumeListing !== null}
+            onClose={() => setResumeListing(null)}
+          />
 
           {totalPages > 1 ? (
             <nav

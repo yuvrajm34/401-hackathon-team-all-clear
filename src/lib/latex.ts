@@ -1,5 +1,6 @@
+import { contactItems, techSeparatorList } from "./resume-format";
 import { dateRangeLabel, visibleResume } from "./resume";
-import type { ProfileLink, Resume } from "./types";
+import type { Resume } from "./types";
 
 /**
  * Renders a resume to a self-contained LaTeX document that compiles on
@@ -26,9 +27,9 @@ export function resumeToLatex(resume: Resume): string {
       .map((item) => {
         const heading = subheading({
           left: escapeLatex(item.school),
-          right: escapeLatex(dateRangeLabel(item.start, item.end)),
+          right: escapeLatex(item.location),
           leftSub: escapeLatex(item.degree),
-          rightSub: escapeLatex(item.location),
+          rightSub: escapeLatex(dateRangeLabel(item.start, item.end)),
         });
         const details = item.details.trim()
           ? `    \\resumeItemListStart\n      \\resumeItem{${escapeLatex(item.details.trim())}}\n    \\resumeItemListEnd\n`
@@ -65,16 +66,15 @@ export function resumeToLatex(resume: Resume): string {
       .map((item) => {
         const label = escapeLatex(item.name || stripProtocol(item.link));
         const name = item.link
-          ? `\\href{${escapeUrl(withProtocol(item.link))}}{\\underline{${label}}}`
-          : label;
-        const title = item.tech
-          ? `\\textbf{${name}} $|$ \\emph{${escapeLatex(item.tech)}}`
-          : `\\textbf{${name}}`;
-
-        const heading = `    \\resumeProjectHeading{${title}}{${escapeLatex(
+          ? `\\href{${escapeUrl(withProtocol(item.link))}}{\\textbf{${label}}}`
+          : `\\textbf{${label}}`;
+        const heading = `    \\resumeProjectHeading{${name}}{${escapeLatex(
           dateRangeLabel(item.start, item.end),
         )}}\n`;
-        return `${heading}${bulletList(item.bullets.map((b) => b.text))}`;
+        const tech = item.tech
+          ? `      \\vspace{-2pt}\\item[]\\small ${escapeLatex(techSeparatorList(item.tech))}\\vspace{-4pt}\n`
+          : "";
+        return `${heading}${tech}${bulletList(item.bullets.map((b) => b.text))}`;
       })
       .join("");
 
@@ -105,40 +105,20 @@ export function resumeToLatex(resume: Resume): string {
 \\begin{document}
 
 \\begin{center}
-    {\\Huge \\scshape ${escapeLatex(profile.fullName || "Your Name")}} \\\\ \\vspace{3pt}
-    ${contactLine(profile.phone, profile.email, profile.location, profile.links)}
+    {\\LARGE \\textbf{${escapeLatex(profile.fullName || "Your Name")}}} \\\\ \\vspace{4pt}
+    ${latexContactLine(profile)}
 \\end{center}
-${profile.headline.trim() ? `\n\\vspace{2pt}\n\\begin{center}\n    \\small ${escapeLatex(profile.headline.trim())}\n\\end{center}\n` : ""}
 ${sections.join("\n")}
 \\end{document}
 `;
 }
 
-function contactLine(
-  phone: string,
-  email: string,
-  location: string,
-  links: ProfileLink[],
-): string {
-  const parts: string[] = [];
-
-  if (phone) parts.push(`\\small ${escapeLatex(phone)}`);
-  if (email) {
-    parts.push(
-      `\\href{mailto:${escapeUrl(email)}}{\\underline{${escapeLatex(email)}}}`,
-    );
-  }
-  if (location) parts.push(escapeLatex(location));
-
-  for (const link of links) {
-    if (!link.url.trim()) continue;
-    parts.push(
-      `\\href{${escapeUrl(withProtocol(link.url))}}{\\underline{${escapeLatex(
-        stripProtocol(link.url),
-      )}}}`,
-    );
-  }
-
+function latexContactLine(profile: Resume["profile"]): string {
+  const parts = contactItems(profile).map((item) => {
+    const label = escapeLatex(item.text);
+    if (!item.href) return `\\small ${label}`;
+    return `\\href{${escapeUrl(item.href)}}{\\underline{${label}}}`;
+  });
   return parts.length > 0 ? parts.join(" $|$ ") : "\\small";
 }
 
@@ -217,20 +197,24 @@ export function resumeToPlainText(resume: Resume): string {
   const lines: string[] = [];
 
   lines.push(profile.fullName || "Your Name");
-  if (profile.headline) lines.push(profile.headline);
-  lines.push(
-    [
-      profile.email,
-      profile.phone,
-      profile.location,
-      ...profile.links.filter((l) => l.url).map((l) => l.url),
-    ]
-      .filter(Boolean)
-      .join(" | "),
-  );
+  lines.push(contactItems(profile).map((item) => item.text).join(" | "));
 
   if (resume.summary.trim()) {
     lines.push("", "SUMMARY", resume.summary.trim());
+  }
+
+  if (visible.education.length > 0) {
+    lines.push("", "EDUCATION");
+    for (const item of visible.education) {
+      lines.push(
+        "",
+        [item.school, item.location].filter(Boolean).join(" — "),
+        [item.degree, dateRangeLabel(item.start, item.end)]
+          .filter(Boolean)
+          .join(" — "),
+      );
+      if (item.details) lines.push(item.details);
+    }
   }
 
   if (visible.experience.length > 0) {
@@ -252,16 +236,6 @@ export function resumeToPlainText(resume: Resume): string {
       lines.push("", `${item.name}${item.tech ? ` (${item.tech})` : ""}`);
       if (item.link) lines.push(item.link);
       for (const b of item.bullets) lines.push(`- ${b.text}`);
-    }
-  }
-
-  if (visible.education.length > 0) {
-    lines.push("", "EDUCATION");
-    for (const item of visible.education) {
-      lines.push("", `${item.degree} — ${item.school}`);
-      const range = dateRangeLabel(item.start, item.end);
-      if (range) lines.push(range);
-      if (item.details) lines.push(item.details);
     }
   }
 
