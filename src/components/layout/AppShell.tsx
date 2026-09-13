@@ -64,6 +64,8 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="relative z-10 flex h-dvh flex-col overflow-hidden">
+      <AtmosphereWell />
+
       <header className="pointer-events-none fixed inset-x-0 top-0 z-40 flex items-center justify-center px-3 pt-3 print:hidden">
         <Link
           href="/"
@@ -79,7 +81,6 @@ export function AppShell({ children }: { children: ReactNode }) {
       </header>
 
       <main className="print-root relative isolate min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-4 pb-28 pt-16 sm:px-6">
-        <AtmosphereWell />
         <div className="relative z-10">{children}</div>
       </main>
 
