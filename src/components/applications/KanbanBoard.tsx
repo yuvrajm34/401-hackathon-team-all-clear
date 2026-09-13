@@ -99,7 +99,7 @@ export function KanbanBoard({
         },
       }}
     >
-      <div className="scrollbar-slim -mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-3 sm:mx-0 sm:snap-none sm:px-0">
+      <div className="scrollbar-slim -mx-4 flex min-h-[calc(100dvh-15.5rem)] snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-3 sm:mx-0 sm:min-h-[calc(100dvh-16.5rem)] sm:snap-none sm:px-0">
         {STAGES.map((stage) => (
           <StageColumn
             key={stage}
@@ -156,7 +156,7 @@ function StageColumn({
       ref={setNodeRef}
       aria-label={`${meta.label}, ${applications.length} applications`}
       className={cn(
-        "flex w-[17.5rem] shrink-0 snap-start flex-col rounded-2xl bg-surface-muted/80 transition-[background-color,box-shadow] duration-200 ease-[var(--ease-emphasized)] sm:w-auto sm:flex-1 sm:snap-align-none",
+        "flex min-h-full w-[17.5rem] shrink-0 snap-start flex-col rounded-2xl bg-surface-muted/80 transition-[background-color,box-shadow] duration-200 ease-[var(--ease-emphasized)] sm:w-auto sm:flex-1 sm:snap-align-none",
         isOver && "bg-brand-soft shadow-card",
       )}
     >
@@ -175,7 +175,7 @@ function StageColumn({
         </span>
       </header>
 
-      <div className="scrollbar-slim flex min-h-[8rem] flex-1 flex-col gap-2 px-2 pb-2 sm:max-h-[calc(100dvh-16rem)] sm:overflow-y-auto">
+      <div className="scrollbar-slim flex min-h-[12rem] flex-1 flex-col gap-2 overflow-y-auto px-2 pb-2">
         <AnimatePresence initial={false}>
           {applications.map((application) => (
             <motion.div

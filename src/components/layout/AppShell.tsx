@@ -47,37 +47,26 @@ function isActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-function pageLabel(pathname: string): string {
-  const match = NAV.find((item) => isActive(pathname, item.href));
-  return match?.label ?? "ApplyPath";
-}
-
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
 
   return (
     <div className="relative z-10 flex h-dvh flex-col overflow-hidden">
-      <header className="app-chrome sticky top-0 z-40 shrink-0 print:hidden">
-        <div className="relative grid h-14 grid-cols-[1fr_auto] items-center gap-3 bg-surface/80 px-4 shadow-card backdrop-blur-xl sm:grid-cols-[1fr_auto_1fr] sm:px-6">
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-brand via-brand-soft to-transparent"
-          />
-          <Link href="/" className="min-w-0 justify-self-start">
-            <span className="font-display text-[20px] font-semibold tracking-tight text-ink sm:text-[22px]">
-              ApplyPath
-            </span>
-          </Link>
-          <p className="hidden truncate text-center text-xs font-medium tracking-wide text-ink-muted sm:block">
-            {pageLabel(pathname)}
-          </p>
-          <div className="justify-self-end">
-            <ThemeToggle />
-          </div>
+      <header className="pointer-events-none fixed inset-x-0 top-0 z-40 flex items-center justify-center px-3 pt-3 print:hidden">
+        <Link
+          href="/"
+          className="pointer-events-auto rounded-full bg-surface/90 px-5 py-2 shadow-raised backdrop-blur-xl"
+        >
+          <span className="font-display text-[20px] font-semibold tracking-tight text-ink sm:text-[22px]">
+            ApplyPath
+          </span>
+        </Link>
+        <div className="pointer-events-auto absolute right-3 top-3 sm:right-6">
+          <ThemeToggle />
         </div>
       </header>
 
-      <main className="print-root relative isolate min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-4 pb-28 pt-5 sm:px-6">
+      <main className="print-root relative isolate min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-4 pb-28 pt-16 sm:px-6">
         <AtmosphereWell />
         <div className="relative z-10">{children}</div>
       </main>
