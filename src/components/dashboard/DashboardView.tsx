@@ -23,7 +23,6 @@ import { ActivityFeed } from "./ActivityFeed";
 import { FollowUpQueue } from "./FollowUpQueue";
 import { FunnelCard } from "./FunnelCard";
 import { MomentumCard } from "./MomentumCard";
-import { StatGrid } from "./StatGrid";
 
 export function DashboardView() {
   return (
@@ -97,90 +96,15 @@ function DashboardInner() {
     );
   }
 
-  const openConversations = stats.byStage.applied + stats.byStage.interview;
-  const lead =
-    stats.reachedOffer > 0
-      ? "offers"
-      : openConversations > 0
-        ? "play"
-        : stats.submitted > 0
-          ? "submitted"
-          : resumes.length > 0
-            ? "resumes"
-            : "submitted";
-
-  const tailoredCount = resumes.filter((resume) => !resume.isMaster).length;
-
   return (
     <>
       <PageHeader
         eyebrow={greeting(settings.ownerName)}
         title="Dashboard"
-        description={
-          stats.submitted === 0
-            ? "Nothing submitted yet. Your wishlist is ready when you are."
-            : `${stats.submitted} applications out, ${openConversations} still in play.`
-        }
         actions={<QuickAddButton />}
       />
 
       <div className="space-y-6">
-        <StatGrid
-          stats={[
-            {
-              label: "Submitted",
-              value: String(stats.submitted),
-              count: stats.submitted,
-              hint: `${stats.byStage.wishlist} on the wishlist`,
-              href: "/applications",
-              rank: lead === "submitted" ? "lead" : "normal",
-            },
-            {
-              label: "Still in play",
-              value: String(openConversations),
-              count: openConversations,
-              hint: "Applied or in interview",
-              rank: lead === "play" ? "lead" : "normal",
-            },
-            {
-              label: "Interviews",
-              value: String(stats.reachedInterview),
-              count: stats.reachedInterview,
-              hint:
-                stats.submitted > 0
-                  ? `${stats.responded} of ${stats.submitted} heard back`
-                  : "None sent yet",
-              rank: "normal",
-            },
-            {
-              label: "Offers",
-              value:
-                stats.reachedOffer > 0
-                  ? String(stats.reachedOffer)
-                  : "None yet",
-              count: stats.reachedOffer > 0 ? stats.reachedOffer : undefined,
-              hint:
-                stats.reachedOffer > 0
-                  ? "A decision is in front of you"
-                  : undefined,
-              tone: stats.reachedOffer > 0 ? "positive" : "default",
-              rank: lead === "offers" ? "lead" : "quiet",
-            },
-            {
-              label: "Resumes",
-              value:
-                resumes.length === 0
-                  ? "None yet"
-                  : `${resumes.length}, ${tailoredCount} tailored`,
-              count: resumes.length > 0 ? resumes.length : undefined,
-              suffix:
-                resumes.length > 0 ? `, ${tailoredCount} tailored` : undefined,
-              href: "/resumes",
-              rank: lead === "resumes" ? "lead" : "quiet",
-            },
-          ]}
-        />
-
         <div className="grid gap-4 lg:grid-cols-3">
           <div className="lg:col-span-2">
             <FollowUpQueue nudges={nudges} reminders={upcomingReminders} />

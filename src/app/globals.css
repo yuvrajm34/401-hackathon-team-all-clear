@@ -223,12 +223,6 @@
     background: color-mix(in srgb, var(--canvas) 78%, transparent);
   }
 
-  @media (prefers-reduced-motion: no-preference) {
-    [data-atmosphere="apple"] .atmosphere-well-photo {
-      animation: apple-wash 40s ease-in-out infinite;
-    }
-  }
-
   :focus-visible {
     outline: 2px solid var(--brand);
     outline-offset: 2px;
@@ -374,16 +368,6 @@
   }
   45% {
     filter: brightness(1.08);
-  }
-}
-
-@keyframes apple-wash {
-  0%,
-  100% {
-    transform: scale(1) translate(0, 0);
-  }
-  50% {
-    transform: scale(1.08) translate(-2.5%, 1.5%);
   }
 }
 
