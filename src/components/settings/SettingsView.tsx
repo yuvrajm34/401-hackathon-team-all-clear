@@ -111,8 +111,7 @@ function SettingsInner() {
 
         <Panel>
           <PanelHeader
-            title="Goals and nudges"
-            description="Tune how hard the dashboard pushes."
+            title="Dashboard Goals and Updates"
           />
           <PanelBody className="space-y-4">
             <LabeledInput
@@ -121,7 +120,7 @@ function SettingsInner() {
               min={1}
               max={50}
               value={settings.weeklyGoal}
-              hint="Drives the progress ring on the dashboard."
+              hint="Applications per week"
               onChange={(event) =>
                 updateSettings({
                   weeklyGoal: clamp(Number(event.target.value), 1, 50),
@@ -129,12 +128,12 @@ function SettingsInner() {
               }
             />
             <LabeledInput
-              label="Flag silence after"
+              label="Flag as 'GONE QUITE' after:"
               type="number"
               min={3}
               max={90}
               value={settings.followUpAfterDays}
-              hint="Days without a reply before an application shows up under 'gone quiet'."
+              hint="Days Without A Reply"
               onChange={(event) =>
                 updateSettings({
                   followUpAfterDays: clamp(Number(event.target.value), 3, 90),
