@@ -237,7 +237,7 @@ function SettingsInner() {
         open={resetOpen}
         title="Delete Your Data?"
         message="Every application, message, reminder, and resume in this browser will be removed. This cannot be undone."
-        confirmLabel="Delete everything"
+        confirmLabel="Delete Your Data"
         onCancel={() => setResetOpen(false)}
         onConfirm={() => {
           resetAll();
