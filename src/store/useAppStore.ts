@@ -7,6 +7,7 @@ import { immer } from "zustand/middleware/immer";
 import { addDays, todayIso } from "@/lib/dates";
 import { createId, nowIso } from "@/lib/ids";
 import { buildDemoSnapshot } from "@/lib/demo-data";
+import { writeListingPreview } from "@/lib/jobs/listing-id";
 import type { JobListing } from "@/lib/jobs/types";
 import { normalizeUrl } from "@/lib/jobs/url";
 import {
@@ -39,6 +40,7 @@ export const DEFAULT_SETTINGS: Settings = {
   atmosphereImage: "",
   atmosphereDim: 55,
   ownerName: "",
+  includeDemoJobs: false,
 };
 
 interface DataState {
@@ -211,6 +213,7 @@ export const useAppStore = create<AppStore>()(
       },
 
       setDiscoverPreview: (listing) => {
+        writeListingPreview(listing);
         set((state) => {
           state.discoverPreviews[listing.id] = listing;
         });
@@ -530,6 +533,10 @@ export const useAppStore = create<AppStore>()(
           settings: {
             ...current.settings,
             ...incoming?.settings,
+            includeDemoJobs:
+              typeof incoming?.settings?.includeDemoJobs === "boolean"
+                ? incoming.settings.includeDemoJobs
+                : incoming?.settings?.ownerName === "Alex Rivera",
           },
         };
       },

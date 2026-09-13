@@ -228,6 +228,8 @@ export interface Settings {
   /** 0–100. How hard the photo is dimmed. The scrim itself never changes. */
   atmosphereDim: number;
   ownerName: string;
+  /** After sample data is loaded, Discover pins dated demo postings so the Posted filter is walkable offline. */
+  includeDemoJobs: boolean;
 }
 
 /* -------------------------------------------------------------------------- */

@@ -1,6 +1,7 @@
 import { addDays, todayIso } from "./dates";
 import { createId, nowIso } from "./ids";
 import { createResume, tailorFromMaster } from "./resume";
+import type { JobListing } from "./jobs/types";
 import type {
   AppSnapshot,
   Application,
@@ -264,7 +265,104 @@ export function buildDemoSnapshot(): AppSnapshot {
       atmosphereImage: "",
       atmosphereDim: 55,
       ownerName: "Alex Rivera",
+      includeDemoJobs: true,
     },
+  };
+}
+
+/**
+ * Sample Greenhouse-shaped listings whose posted times are relative to now,
+ * so Discover's Posted filter has obvious hits in a live demo.
+ */
+export function buildDemoJobListings(): JobListing[] {
+  const hoursAgo = (hours: number) =>
+    new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+
+  return [
+    listing({
+      id: "demo:applypath-frontend",
+      company: "ApplyPath Labs",
+      position: "Frontend Engineer",
+      location: "Remote (Canada)",
+      workMode: "remote",
+      department: "Engineering",
+      family: "Engineering",
+      postedAt: hoursAgo(4),
+      description:
+        "Ship the ApplyPath web app in React and TypeScript. You will own accessible UI, Next.js routing, and keyword-match tooling against live job descriptions. PostgreSQL experience and Playwright coverage are a plus.",
+    }),
+    listing({
+      id: "demo:harborline-fullstack",
+      company: "Harborline",
+      position: "Full Stack Intern",
+      location: "Toronto, ON",
+      workMode: "hybrid",
+      department: "Engineering",
+      family: "Engineering",
+      postedAt: hoursAgo(16),
+      description:
+        "Summer intern on the member portal. TypeScript, React, and a Django REST API. You will write SQL, add tests, and pair on code review. Strong fundamentals in data structures help.",
+    }),
+    listing({
+      id: "demo:northwind-data",
+      company: "Northwind Health",
+      position: "Data Engineer",
+      location: "Toronto, ON",
+      workMode: "hybrid",
+      department: "Data",
+      family: "Data & ML",
+      postedAt: hoursAgo(72),
+      description:
+        "Build Python pipelines into PostgreSQL and Redis. Experience with SQL, schema design, and Grafana dashboards. We also use FastAPI for internal services.",
+    }),
+    listing({
+      id: "demo:maple-designer",
+      company: "Maple & Co",
+      position: "Product Designer",
+      location: "Remote",
+      workMode: "remote",
+      department: "Design",
+      family: "Design",
+      postedAt: hoursAgo(120),
+      description:
+        "Own the design system and WCAG 2.1 AA work. Partner with frontend engineers on React component libraries, accessibility, and keyboard navigation.",
+    }),
+    listing({
+      id: "demo:cedar-platform",
+      company: "Cedar Bank",
+      position: "Platform Engineer",
+      location: "Vancouver, BC",
+      workMode: "onsite",
+      department: "Infrastructure",
+      family: "Engineering",
+      postedAt: hoursAgo(14 * 24),
+      description:
+        "Kubernetes, CI/CD, and observability. Terraform and Grafana. Less product UI, more reliable deploys for payments services.",
+    }),
+    listing({
+      id: "demo:lumen-support",
+      company: "Lumen Desk",
+      position: "Support Engineer",
+      location: "Remote",
+      workMode: "remote",
+      department: "Support",
+      family: "Support",
+      postedAt: hoursAgo(40 * 24),
+      description:
+        "Help customers debug API integrations. SQL comfort and clear writing. Not a software engineering role.",
+    }),
+  ];
+}
+
+function listing(
+  input: Omit<JobListing, "companySlug" | "url"> &
+    Partial<Pick<JobListing, "companySlug" | "url">>,
+): JobListing {
+  const slug = input.companySlug ?? input.id.replace(/^demo:/, "");
+  return {
+    ...input,
+    companySlug: slug,
+    url: input.url ?? `https://example.com/jobs/${slug}`,
   };
 }
 

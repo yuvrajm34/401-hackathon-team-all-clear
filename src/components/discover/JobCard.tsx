@@ -13,7 +13,7 @@ import {
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
-import { formatDate } from "@/lib/dates";
+import { formatRelativeDay } from "@/lib/dates";
 import type { JobListing } from "@/lib/jobs/types";
 import { matchSignal, scoreLabel } from "@/lib/keywords";
 import { WORK_MODE_LABELS } from "@/lib/stages";
@@ -90,8 +90,7 @@ export function JobCard({
           {listing.department ? <Badge>{listing.department}</Badge> : null}
           {listing.postedAt ? (
             <span className="text-[11px] text-ink-subtle">
-              Posted{" "}
-              <span className="font-numeral">{formatDate(listing.postedAt)}</span>
+              Posted {formatRelativeDay(listing.postedAt)}
             </span>
           ) : null}
         </div>

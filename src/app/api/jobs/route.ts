@@ -23,6 +23,10 @@ import {
   toJobListing,
   type BoardJob,
 } from "@/lib/jobs/greenhouse";
+import {
+  listingIsWithinPostedWindow,
+  parsePostedWindow,
+} from "@/lib/jobs/posted";
 import type { JobSearchResponse } from "@/lib/jobs/types";
 
 const DEFAULT_PAGE_SIZE = 24;
@@ -38,6 +42,8 @@ export async function GET(request: NextRequest) {
   const family = JOB_FAMILIES.includes(requestedFamily as JobFamily)
     ? (requestedFamily as JobFamily)
     : null;
+
+  const posted = parsePostedWindow(params.get("posted"));
 
   const page = Math.max(1, Number.parseInt(params.get("page") ?? "1", 10) || 1);
   const pageSize = Math.min(
@@ -61,6 +67,7 @@ export async function GET(request: NextRequest) {
 
   const matchesSearch = (job: BoardJob) => {
     if (remoteOnly && !isRemote(job)) return false;
+    if (!listingIsWithinPostedWindow(postedAtOf(job), posted)) return false;
     if (!query) return true;
     return searchTextOf(job).includes(query);
   };

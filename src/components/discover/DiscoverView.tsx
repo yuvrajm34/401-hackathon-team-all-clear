@@ -22,6 +22,16 @@ import { toast } from "@/components/ui/Toaster";
 import { cn } from "@/lib/cn";
 import { COMPANIES } from "@/lib/jobs/companies";
 import { JOB_FAMILIES, type JobFamily } from "@/lib/jobs/families";
+import { buildDemoJobListings } from "@/lib/demo-data";
+import {
+  DEFAULT_POSTED_WINDOW,
+  listingIsWithinPostedWindow,
+  parsePostedWindow,
+  POSTED_FILTERS,
+  type PostedWindow,
+  postedWindowParam,
+} from "@/lib/jobs/posted";
+import { listingPathId } from "@/lib/jobs/listing-id";
 import { scoreListings } from "@/lib/jobs/scoreListings";
 import type { JobListing } from "@/lib/jobs/types";
 import { useJobSearch } from "@/lib/jobs/useJobSearch";
@@ -62,11 +72,15 @@ function DiscoverViewInner() {
   const importJobListing = useAppStore((state) => state.importJobListing);
   const setDiscoverPreview = useAppStore((state) => state.setDiscoverPreview);
   const tailorResume = useAppStore((state) => state.tailorResume);
+  const includeDemoJobs = useAppStore(
+    (state) => state.settings.includeDemoJobs,
+  );
 
   const [query, setQuery] = useState("");
   const [company, setCompany] = useState("all");
   const [family, setFamily] = useState<JobFamily | null>(null);
   const [remoteOnly, setRemoteOnly] = useState(false);
+  const [posted, setPosted] = useState<PostedWindow>(DEFAULT_POSTED_WINDOW);
   // Default to sorting by match once a master resume exists to score
   // against — otherwise there's nothing to match on, so newest is the only
   // sort that means anything. Only applies on mount; a user's manual
@@ -86,9 +100,11 @@ function DiscoverViewInner() {
     if (company !== "all") params.set("company", company);
     if (family) params.set("family", family);
     if (remoteOnly) params.set("remote", "1");
+    const postedParam = postedWindowParam(posted);
+    if (postedParam) params.set("posted", postedParam);
     if (page > 1) params.set("page", String(page));
     return params.toString();
-  }, [debouncedQuery, company, family, remoteOnly, page]);
+  }, [debouncedQuery, company, family, remoteOnly, posted, page]);
 
   const { data, error, loading } = useJobSearch(queryString, retry);
 
@@ -105,15 +121,55 @@ function DiscoverViewInner() {
     [applications],
   );
 
-  const results = useMemo(() => {
-    const scored = scoreListings(data?.jobs ?? [], masterText);
+  const demoMatches = useMemo(() => {
+    if (!includeDemoJobs || company !== "all") return [];
+    const needle = debouncedQuery.toLowerCase();
+    return buildDemoJobListings().filter((job) => {
+      if (remoteOnly && job.workMode !== "remote") return false;
+      if (!listingIsWithinPostedWindow(job.postedAt, posted)) return false;
+      if (!needle) return true;
+      return `${job.position} ${job.company} ${job.location} ${job.department}`
+        .toLowerCase()
+        .includes(needle);
+    });
+  }, [includeDemoJobs, company, remoteOnly, posted, debouncedQuery]);
 
+  const visibleDemo = useMemo(
+    () =>
+      family ? demoMatches.filter((job) => job.family === family) : demoMatches,
+    [demoMatches, family],
+  );
+
+  const familyCounts = useMemo(() => {
+    const counts = { ...(data?.familyCounts ?? {}) };
+    for (const job of demoMatches) {
+      counts[job.family] = (counts[job.family] ?? 0) + 1;
+    }
+    return counts;
+  }, [data, demoMatches]);
+
+  const results = useMemo(() => {
+    const board = data?.jobs ?? [];
+    const merged = page === 1 ? [...visibleDemo, ...board] : board;
+    const seen = new Set<string>();
+    const unique = merged.filter((job) => {
+      if (seen.has(job.id)) return false;
+      seen.add(job.id);
+      return true;
+    });
+
+    const scored = scoreListings(unique, masterText);
     if (sort === "match") {
       scored.sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
+    } else {
+      scored.sort((a, b) =>
+        b.listing.postedAt.localeCompare(a.listing.postedAt),
+      );
     }
-
     return scored;
-  }, [data, masterText, sort]);
+  }, [data, visibleDemo, masterText, sort, page]);
+
+  const total = (data?.total ?? 0) + visibleDemo.length;
 
   /** If the posting is already tracked, go straight to its real detail
    * page. Otherwise open the same page in a read-only preview — job
@@ -133,7 +189,7 @@ function DiscoverViewInner() {
       return;
     }
     setDiscoverPreview(listing);
-    router.push(`/applications/${encodeURIComponent(listing.id)}`);
+    router.push(`/applications/${listingPathId(listing.id)}`);
   };
 
   const handleAdd = (listing: JobListing) => {
@@ -210,9 +266,15 @@ function DiscoverViewInner() {
     }
   };
 
-  const totalPages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
+  const totalPages = data
+    ? Math.max(1, Math.ceil(total / data.pageSize))
+    : 1;
   const filtersActive =
-    query.trim() !== "" || company !== "all" || family !== null || remoteOnly;
+    query.trim() !== "" ||
+    company !== "all" ||
+    family !== null ||
+    remoteOnly ||
+    posted !== DEFAULT_POSTED_WINDOW;
 
   return (
     <>
@@ -221,7 +283,13 @@ function DiscoverViewInner() {
         title="Discover"
         description={
           data
-            ? `${data.total.toLocaleString()} open roles across ${COMPANIES.length} companies, scored against your master resume.`
+            ? `${total.toLocaleString()} open roles across ${COMPANIES.length} companies${
+                includeDemoJobs
+                  ? `, including ${visibleDemo.length} sample posting${
+                      visibleDemo.length === 1 ? "" : "s"
+                    } for the date filter`
+                  : ""
+              }, scored against your master resume.`
             : `Search real openings across ${COMPANIES.length} companies hiring through Greenhouse.`
         }
         actions={
@@ -292,6 +360,19 @@ function DiscoverViewInner() {
             Remote only
           </button>
 
+          <SegmentedControl<string>
+            ariaLabel="Posted date"
+            value={postedWindowParam(posted)}
+            onChange={(next) => {
+              setPosted(parsePostedWindow(next || null));
+              setPage(1);
+            }}
+            segments={POSTED_FILTERS.map((item) => ({
+              value: item.param,
+              label: item.label,
+            }))}
+          />
+
           {filtersActive ? (
             <Button
               variant="ghost"
@@ -301,6 +382,7 @@ function DiscoverViewInner() {
                 setCompany("all");
                 setFamily(null);
                 setRemoteOnly(false);
+                setPosted(DEFAULT_POSTED_WINDOW);
                 setPage(1);
               }}
             >
@@ -321,7 +403,7 @@ function DiscoverViewInner() {
             All fields
           </FilterChip>
           {JOB_FAMILIES.map((item) => {
-            const count = data?.familyCounts[item] ?? 0;
+            const count = familyCounts[item] ?? 0;
             if (count === 0 && family !== item) return null;
 
             return (
@@ -379,7 +461,7 @@ function DiscoverViewInner() {
         <EmptyState
           icon={<Compass size={20} aria-hidden="true" />}
           title="No openings match those filters"
-          description="Try a broader search term, a different company, or clear the filters."
+          description="Try a broader search term, a wider posted window, a different company, or clear the filters."
         />
       ) : (
         <>

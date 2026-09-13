@@ -257,6 +257,54 @@ export function buildMatchReport(
   };
 }
 
+export interface ScoreLift {
+  /** Highest-weight missing terms, in the order they should be added. */
+  terms: KeywordHit[];
+  /** Score after those terms are treated as matched. */
+  projectedScore: number;
+  /** True when covering this set reaches `target`. */
+  reachesTarget: boolean;
+}
+
+/**
+ * Greedy lift: cover the heaviest missing terms until the weighted score
+ * would hit `target` (the "Strong match" band). Read-only — it names gaps,
+ * it does not edit the resume.
+ */
+export function termsToReachScore(
+  report: MatchReport,
+  target = 70,
+): ScoreLift | null {
+  if (report.empty || report.hits.length === 0) return null;
+  if (report.score >= target) return null;
+
+  const totalWeight = report.hits.reduce((sum, hit) => sum + hit.weight, 0);
+  if (totalWeight === 0) return null;
+
+  let matchedWeight = report.matched.reduce((sum, hit) => sum + hit.weight, 0);
+  const missing = [...report.missing].sort(
+    (a, b) => b.weight - a.weight || a.keyword.localeCompare(b.keyword),
+  );
+
+  const terms: KeywordHit[] = [];
+  for (const hit of missing) {
+    terms.push(hit);
+    matchedWeight += hit.weight;
+    const projectedScore = Math.round((matchedWeight / totalWeight) * 100);
+    if (projectedScore >= target) {
+      return { terms, projectedScore, reachesTarget: true };
+    }
+  }
+
+  if (terms.length === 0) return null;
+
+  return {
+    terms,
+    projectedScore: Math.round((matchedWeight / totalWeight) * 100),
+    reachesTarget: false,
+  };
+}
+
 export function scoreLabel(score: number): {
   label: string;
   tone: "strong" | "fair" | "weak";

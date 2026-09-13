@@ -24,6 +24,10 @@ import { TextArea } from "@/components/ui/Field";
 import { toast } from "@/components/ui/Toaster";
 import { formatDate, formatRelativeDay } from "@/lib/dates";
 import {
+  listingIdCandidates,
+  readListingPreview,
+} from "@/lib/jobs/listing-id";
+import {
   PRIORITY_LABELS,
   STAGE_META,
   WORK_MODE_LABELS,
@@ -49,11 +53,19 @@ export function ApplicationDetailView({ id }: { id: string }) {
 
 function ApplicationDetailInner({ id }: { id: string }) {
   const router = useRouter();
+  const ids = useMemo(() => listingIdCandidates(id), [id]);
 
   const application = useAppStore((state) =>
-    state.applications.find((item) => item.id === id),
+    state.applications.find((item) => ids.includes(item.id)),
   );
-  const previewListing = useAppStore((state) => state.discoverPreviews[id]);
+  const previewFromStore = useAppStore((state) => {
+    for (const key of ids) {
+      const hit = state.discoverPreviews[key];
+      if (hit) return hit;
+    }
+    return undefined;
+  });
+  const previewListing = previewFromStore ?? readListingPreview(id);
   const communications = useAppStore((state) => state.communications);
   const reminders = useAppStore((state) => state.reminders);
   const resumes = useAppStore((state) => state.resumes);

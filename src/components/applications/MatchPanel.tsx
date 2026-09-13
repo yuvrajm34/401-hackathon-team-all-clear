@@ -8,17 +8,15 @@ import { ButtonLink, Button } from "@/components/ui/Button";
 import { Panel, PanelBody, PanelHeader } from "@/components/ui/Panel";
 import { ProgressRing } from "@/components/ui/ProgressRing";
 import { cn } from "@/lib/cn";
-import { buildMatchReport, scoreLabel } from "@/lib/keywords";
+import { buildMatchReport, scoreLabel, termsToReachScore } from "@/lib/keywords";
 import { resumeText } from "@/lib/resume";
 import type { Application, Resume } from "@/lib/types";
 
 /**
  * Compares the job description against the resume attached to this
- * application: a keyword-overlap score for a quick read, plus genuine,
- * specific AI tailoring suggestions (reframes and flagged gaps) instead of
- * a raw "missing terms" list — that used to surface generic posting
- * language as a "skill" the resume was missing, with a one-click button to
- * bolt it on verbatim.
+ * application: a keyword-overlap score, the missing terms (read-only —
+ * posting jargon is not one-click appended to the resume), a greedy
+ * "what would get this to Strong" line, and optional AI rewrite advice.
  */
 export function MatchPanel({
   application,
@@ -95,6 +93,19 @@ export function MatchPanel({
         resume ? resumeText(resume) : "",
       ),
     [application.jobDescription, resume],
+  );
+
+  const lift = useMemo(() => termsToReachScore(report), [report]);
+  const liftKeywords = useMemo(
+    () => new Set(lift?.terms.map((hit) => hit.keyword) ?? []),
+    [lift],
+  );
+  const missingOrdered = useMemo(
+    () =>
+      [...report.missing].sort(
+        (a, b) => b.weight - a.weight || a.keyword.localeCompare(b.keyword),
+      ),
+    [report.missing],
   );
 
   const hasJobDescription = application.jobDescription.trim().length > 0;
@@ -186,6 +197,62 @@ export function MatchPanel({
                 </ul>
               </section>
             ) : null}
+
+            {report.missing.length > 0 ? (
+              <section>
+                <h3 className="mb-1.5 text-xs font-medium text-ink-muted">
+                  Still missing
+                  <span className="ml-1.5 font-normal text-ink-subtle">
+                    {report.missing.length}
+                  </span>
+                </h3>
+                <ul className="flex flex-wrap gap-1.5">
+                  {missingOrdered.map((hit) => {
+                    const leverage = liftKeywords.has(hit.keyword);
+                    return (
+                      <li
+                        key={hit.keyword}
+                        title={
+                          leverage
+                            ? `Highest-leverage gap · mentioned ${hit.weight}× in the posting`
+                            : `Mentioned ${hit.weight}× in the posting`
+                        }
+                        className={cn(
+                          "chip-tone rounded-lg px-1.5 py-0.5 text-[11px]",
+                          leverage
+                            ? "bg-accent-soft text-accent-on-soft"
+                            : "bg-surface-muted text-ink-muted",
+                        )}
+                      >
+                        {hit.keyword}
+                      </li>
+                    );
+                  })}
+                </ul>
+                {lift ? (
+                  <p className="mt-2 text-[11px] leading-relaxed text-ink-muted">
+                    {lift.reachesTarget ? (
+                      <>
+                        Covering{" "}
+                        {lift.terms.map((hit) => hit.keyword).join(", ")}{" "}
+                        would lift this to about {lift.projectedScore}% —
+                        the Strong match band.
+                      </>
+                    ) : (
+                      <>
+                        Covering every remaining term would reach about{" "}
+                        {lift.projectedScore}%. These weights alone cannot
+                        get to 70%.
+                      </>
+                    )}
+                  </p>
+                ) : null}
+              </section>
+            ) : (
+              <p className="text-[11px] text-ink-muted">
+                Every extracted term already appears in this resume.
+              </p>
+            )}
 
             <section className="border-t border-line pt-3">
               <div className="flex items-center justify-between gap-2">
