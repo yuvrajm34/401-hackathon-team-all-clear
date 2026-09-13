@@ -14,12 +14,14 @@ import { todayIso } from "@/lib/dates";
 import { hasMemeForStage } from "@/lib/memes";
 import { STAGE_META } from "@/lib/stages";
 import { STAGES, type Application, type Stage } from "@/lib/types";
+import { useIsMobile } from "@/lib/useIsMobile";
 import { useAppStore } from "@/store/useAppStore";
 
 import type { ApplicationCardMeta } from "./ApplicationCard";
 import { ApplicationsTable } from "./ApplicationsTable";
 import { KanbanBoard } from "./KanbanBoard";
 import { MemePopup, type MemeEvent } from "./MemePopup";
+import { MobileStageBoard } from "./MobileStageBoard";
 import { QuickAddButton } from "./QuickAddButton";
 
 type ViewMode = "board" | "list";
@@ -33,6 +35,7 @@ export function ApplicationsView() {
 }
 
 function ApplicationsViewInner() {
+  const isMobile = useIsMobile();
   const applications = useAppStore((state) => state.applications);
   const communications = useAppStore((state) => state.communications);
   const reminders = useAppStore((state) => state.reminders);
@@ -177,11 +180,19 @@ function ApplicationsViewInner() {
           description="Move a card here from the board, or pick another stage."
         />
       ) : view === "board" ? (
-        <KanbanBoard
-          applications={filtered}
-          metaFor={metaFor}
-          onMove={handleBoardMove}
-        />
+        isMobile ? (
+          <MobileStageBoard
+            applications={filtered}
+            metaFor={metaFor}
+            onMove={handleBoardMove}
+          />
+        ) : (
+          <KanbanBoard
+            applications={filtered}
+            metaFor={metaFor}
+            onMove={handleBoardMove}
+          />
+        )
       ) : (
         <ApplicationsTable
           applications={filtered}

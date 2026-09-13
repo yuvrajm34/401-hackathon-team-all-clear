@@ -81,7 +81,7 @@ export function ApplicationsTable({
 
   return (
     <div className="overflow-hidden rounded-[1.75rem] bg-surface shadow-card">
-      <div className="scrollbar-slim overflow-x-auto">
+      <div data-swipe-ignore className="scrollbar-slim overflow-x-auto">
         <table className="w-full border-collapse text-sm">
           <caption className="sr-only">
             Job applications, sortable by column

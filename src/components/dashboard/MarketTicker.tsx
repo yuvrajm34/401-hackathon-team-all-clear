@@ -23,7 +23,7 @@ export function MarketTicker({ items }: { items: TickerItem[] }) {
       <p className="mb-2 text-[11px] font-medium tracking-wide text-ink-muted">
         Recently scored
       </p>
-      <ul className="scrollbar-slim flex gap-2 overflow-x-auto pb-1">
+      <ul data-swipe-ignore className="scrollbar-slim flex gap-2 overflow-x-auto pb-1">
         {visible.map((item) => (
           <li key={item.id} className="shrink-0">
             <TickerChip item={item} />

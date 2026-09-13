@@ -99,7 +99,10 @@ export function KanbanBoard({
         },
       }}
     >
-      <div className="scrollbar-slim -mx-4 flex min-h-[calc(100dvh-15.5rem)] snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-3 sm:mx-0 sm:min-h-[calc(100dvh-16.5rem)] sm:snap-none sm:px-0">
+      <div
+        data-swipe-ignore
+        className="scrollbar-slim -mx-4 flex min-h-[calc(100dvh-15.5rem)] snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-3 sm:mx-0 sm:min-h-[calc(100dvh-16.5rem)] sm:snap-none sm:px-0"
+      >
         {STAGES.map((stage) => (
           <StageColumn
             key={stage}

@@ -8,11 +8,11 @@ import {
   Settings,
   SquareKanban,
 } from "lucide-react";
-import { motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useRef, useState } from "react";
-import type { ComponentType, ReactNode, UIEvent } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import type { ComponentType, ReactNode, TouchEvent, UIEvent } from "react";
 
 import { Toaster } from "@/components/ui/Toaster";
 import { cn } from "@/lib/cn";
@@ -39,6 +39,45 @@ const LOGO_VARIANTS_REDUCED = {
  * logo hides — small enough to react quickly, large enough to ignore
  * incidental scroll jitter right at the top. */
 const HIDE_SCROLL_THRESHOLD = 24;
+
+/** Minimum horizontal travel (px) for a touch gesture to count as a
+ * side-to-side swipe rather than an incidental drift. */
+const SWIPE_MIN_DISTANCE = 70;
+/** Vertical travel can't exceed this fraction of horizontal travel — keeps
+ * an ordinary vertical scroll (which always has *some* horizontal jitter)
+ * from being misread as a swipe. */
+const SWIPE_MAX_VERTICAL_RATIO = 0.5;
+/** A slow drag that happens to cover the distance isn't a "swipe" gesture;
+ * capping the duration keeps this feeling like a flick, not a scroll. */
+const SWIPE_MAX_DURATION_MS = 600;
+
+/** How far (px) a page slides in/out during a tab change — small and quick
+ * rather than a full-screen slide, so it reads as "smoother" without
+ * feeling like a slow, heavy page transition. */
+const PAGE_SLIDE_DISTANCE = 28;
+
+/** `custom` here is the direction: `1` moving right through the tab order
+ * (content slides in from the right, the way swiping left to reveal the
+ * next page should feel), `-1` moving left, `0` for a same-tab navigation
+ * (a drill-down into a detail page) where a left/right slide wouldn't mean
+ * anything — that case just crossfades. */
+const PAGE_VARIANTS = {
+  enter: (direction: number) => ({
+    opacity: 0,
+    x: direction * PAGE_SLIDE_DISTANCE,
+  }),
+  center: { opacity: 1, x: 0 },
+  exit: (direction: number) => ({
+    opacity: 0,
+    x: -direction * PAGE_SLIDE_DISTANCE,
+  }),
+};
+
+const PAGE_VARIANTS_REDUCED = {
+  enter: { opacity: 0 },
+  center: { opacity: 1 },
+  exit: { opacity: 0 },
+};
 
 const WORDMARK = "ApplyPath";
 
@@ -171,6 +210,7 @@ function isActive(pathname: string, href: string): boolean {
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const reduceMotion = useReducedMotion();
   const [logoVisible, setLogoVisible] = useState(true);
   // Bumped every time the logo transitions from hidden back to visible, and
@@ -180,6 +220,23 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [wordmarkResetKey, setWordmarkResetKey] = useState(0);
   const wasVisibleRef = useRef(true);
   const scrollTicking = useRef(false);
+
+  // Which way the page transition slides: whichever direction the active
+  // tab actually moved, so tapping the bottom nav gets the same "carousel"
+  // feel as swiping, not just the swipe gesture itself.
+  const [pageDirection, setPageDirection] = useState(0);
+  const prevNavIndexRef = useRef<number | null>(null);
+  const currentNavIndex = NAV.findIndex((item) => isActive(pathname, item.href));
+
+  useEffect(() => {
+    const prevIndex = prevNavIndexRef.current;
+    if (prevIndex !== null && currentNavIndex !== -1 && prevIndex !== currentNavIndex) {
+      setPageDirection(currentNavIndex > prevIndex ? 1 : -1);
+    } else if (currentNavIndex === -1 || prevIndex === currentNavIndex) {
+      setPageDirection(0);
+    }
+    if (currentNavIndex !== -1) prevNavIndexRef.current = currentNavIndex;
+  }, [currentNavIndex]);
 
   const handleScroll = (event: UIEvent<HTMLElement>) => {
     if (scrollTicking.current) return;
@@ -194,6 +251,50 @@ export function AppShell({ children }: { children: ReactNode }) {
       setLogoVisible(nextVisible);
       scrollTicking.current = false;
     });
+  };
+
+  // Swipe left/right between the primary nav tabs on touch devices. Purely
+  // passive — no preventDefault, no touch-action changes — so it never
+  // fights native scrolling. A gesture starting inside a horizontally
+  // scrollable area (the Kanban board, a wide table, the dashboard ticker —
+  // anything marked `data-swipe-ignore`) is ignored entirely, since that
+  // touch is meant to scroll that element, not switch pages.
+  const touchStart = useRef<{ x: number; y: number; time: number } | null>(
+    null,
+  );
+  const touchIgnored = useRef(false);
+
+  const handleTouchStart = (event: TouchEvent<HTMLElement>) => {
+    touchIgnored.current = Boolean(
+      (event.target as HTMLElement).closest("[data-swipe-ignore]"),
+    );
+    if (touchIgnored.current) return;
+    const touch = event.touches[0];
+    touchStart.current = { x: touch.clientX, y: touch.clientY, time: Date.now() };
+  };
+
+  const handleTouchEnd = (event: TouchEvent<HTMLElement>) => {
+    const start = touchStart.current;
+    touchStart.current = null;
+    if (touchIgnored.current || !start) return;
+
+    const touch = event.changedTouches[0];
+    const dx = touch.clientX - start.x;
+    const dy = touch.clientY - start.y;
+    const dt = Date.now() - start.time;
+
+    if (dt > SWIPE_MAX_DURATION_MS) return;
+    if (Math.abs(dx) < SWIPE_MIN_DISTANCE) return;
+    if (Math.abs(dy) > Math.abs(dx) * SWIPE_MAX_VERTICAL_RATIO) return;
+
+    const currentIndex = NAV.findIndex((item) => isActive(pathname, item.href));
+    if (currentIndex === -1) return;
+
+    if (dx < 0 && currentIndex < NAV.length - 1) {
+      router.push(NAV[currentIndex + 1].href);
+    } else if (dx > 0 && currentIndex > 0) {
+      router.push(NAV[currentIndex - 1].href);
+    }
   };
 
   return (
@@ -234,9 +335,24 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <main
         onScroll={handleScroll}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
         className="print-root relative isolate min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-4 pb-28 pt-16 sm:px-6"
       >
-        <div className="relative z-10">{children}</div>
+        <AnimatePresence mode="popLayout" initial={false} custom={pageDirection}>
+          <motion.div
+            key={pathname}
+            custom={pageDirection}
+            variants={reduceMotion ? PAGE_VARIANTS_REDUCED : PAGE_VARIANTS}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={{ duration: 0.22, ease: [0.2, 0, 0, 1] }}
+            className="relative z-10"
+          >
+            {children}
+          </motion.div>
+        </AnimatePresence>
       </main>
 
       <nav
