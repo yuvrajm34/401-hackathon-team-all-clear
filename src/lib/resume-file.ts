@@ -99,6 +99,11 @@ export async function parseResumeFileQuick(
     };
   } catch (caught) {
     if (caught instanceof ResumeFileError) throw caught;
+    if (caught instanceof Error && caught.name === "AbortError") {
+      throw new ResumeFileError(
+        "That took too long and was cancelled. Check the dev server is running and try again.",
+      );
+    }
     const message =
       caught instanceof Error && caught.message
         ? caught.message
@@ -119,11 +124,31 @@ export async function parseResumeFileQuick(
  * Silent by design: teammates without Ollama set up should see the same
  * heuristic-parser result as before, not an error.
  */
+// Ceiling for the client-side fetch itself, independent of the server's own
+// Ollama timeout — without this, a dead/hung dev server leaves the caller
+// awaiting a fetch() that never settles, stuck with no way to recover short
+// of a page refresh (this is exactly the "stuck on Parsing your resume"
+// failure mode: the server died mid-request and nothing ever timed out).
+const CLIENT_FETCH_TIMEOUT_MS = 185_000;
+
+async function fetchWithTimeout(
+  input: RequestInfo,
+  init: RequestInit = {},
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), CLIENT_FETCH_TIMEOUT_MS);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export async function refineResumeWithAI(
   input: ResumeRefineInput,
 ): Promise<ParsedResume | null> {
   try {
-    const response = await fetch("/api/resume/parse-ai", {
+    const response = await fetchWithTimeout("/api/resume/parse-ai", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text: input.text, links: input.links }),
@@ -148,7 +173,7 @@ async function extractOnServer(
   const body = new FormData();
   body.append("file", file);
 
-  const response = await fetch("/api/resume/extract", {
+  const response = await fetchWithTimeout("/api/resume/extract", {
     method: "POST",
     body,
   });

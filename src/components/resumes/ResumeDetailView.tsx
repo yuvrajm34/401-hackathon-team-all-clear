@@ -1,6 +1,21 @@
 "use client";
 
 import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import {
   ArrowLeft,
   ClipboardCopy,
   Copy,
@@ -26,7 +41,13 @@ import { toast } from "@/components/ui/Toaster";
 import { cn } from "@/lib/cn";
 import { copyToClipboard, downloadTextFile, slugify } from "@/lib/download";
 import { resumeToLatex, resumeToPlainText } from "@/lib/latex";
-import { diffAgainstMaster, emptyDiff, estimateLineCount } from "@/lib/resume";
+import {
+  diffAgainstMaster,
+  emptyDiff,
+  estimateLineCount,
+  getSectionOrder,
+} from "@/lib/resume";
+import type { ResumeSectionKey } from "@/lib/types";
 import { useAppStore } from "@/store/useAppStore";
 
 import { ResumePreview } from "./ResumePreview";
@@ -36,7 +57,7 @@ import { EducationEditor } from "./editor/EducationEditor";
 import { ExperienceEditor } from "./editor/ExperienceEditor";
 import { ProfileEditor } from "./editor/ProfileEditor";
 import { ProjectsEditor } from "./editor/ProjectsEditor";
-import { SectionShell } from "./editor/ItemShell";
+import { SectionShell, SortableSection } from "./editor/ItemShell";
 import { SkillsEditor } from "./editor/SkillsEditor";
 
 type Pane = "edit" | "preview";
@@ -67,6 +88,12 @@ function ResumeDetailInner({ id }: { id: string }) {
   const [tailorOpen, setTailorOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
+  // Must run before the `!resume` early return below (Rules of Hooks).
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
   const master = useMemo(
     () => resumes.find((item) => item.isMaster),
     [resumes],
@@ -96,6 +123,65 @@ function ResumeDetailInner({ id }: { id: string }) {
   );
   const lineEstimate = estimateLineCount(resume);
   const overOnePage = lineEstimate > 46;
+
+  const sectionOrder = getSectionOrder(resume);
+
+  const handleSectionDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const from = sectionOrder.indexOf(active.id as ResumeSectionKey);
+    const to = sectionOrder.indexOf(over.id as ResumeSectionKey);
+    if (from === -1 || to === -1) return;
+    const nextOrder = arrayMove(sectionOrder, from, to);
+    updateResume(resume.id, (draft) => {
+      draft.sectionOrder = nextOrder;
+    });
+  };
+
+  const sectionRenderers: Record<ResumeSectionKey, () => React.ReactNode> = {
+    summary: () => (
+      <SectionShell
+        title="Summary"
+        description="Two or three lines. Rewrite this per role — it is the fastest win."
+        action={
+          !resume.isMaster && diff.summaryChanged && master ? (
+            <button
+              type="button"
+              onClick={() =>
+                updateResume(resume.id, (draft) => {
+                  draft.summary = master.summary;
+                })
+              }
+              className="rounded-md border border-line px-2 py-1 text-[11px] text-ink-muted transition hover:border-brand hover:text-brand"
+            >
+              Reset to master
+            </button>
+          ) : null
+        }
+      >
+        <InlineTextArea
+          value={resume.summary}
+          rows={4}
+          aria-label="Professional summary"
+          placeholder="What you do, how long you have been doing it, and the thing you want them to remember."
+          className="border-line bg-surface"
+          onChange={(event) =>
+            updateResume(resume.id, (draft) => {
+              draft.summary = event.target.value;
+            })
+          }
+        />
+      </SectionShell>
+    ),
+    experience: () => (
+      <ExperienceEditor resume={resume} master={master} diff={diff} />
+    ),
+    projects: () => <ProjectsEditor resume={resume} master={master} diff={diff} />,
+    education: () => (
+      <EducationEditor resume={resume} master={master} diff={diff} />
+    ),
+    skills: () => <SkillsEditor resume={resume} master={master} diff={diff} />,
+  };
 
   const exportLatex = () => {
     downloadTextFile(
@@ -263,43 +349,24 @@ function ResumeDetailInner({ id }: { id: string }) {
         >
           <ProfileEditor resume={resume} />
 
-          <SectionShell
-            title="Summary"
-            description="Two or three lines. Rewrite this per role — it is the fastest win."
-            action={
-              !resume.isMaster && diff.summaryChanged && master ? (
-                <button
-                  type="button"
-                  onClick={() =>
-                    updateResume(resume.id, (draft) => {
-                      draft.summary = master.summary;
-                    })
-                  }
-                  className="rounded-md border border-line px-2 py-1 text-[11px] text-ink-muted transition hover:border-brand hover:text-brand"
-                >
-                  Reset to master
-                </button>
-              ) : null
-            }
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleSectionDragEnd}
           >
-            <InlineTextArea
-              value={resume.summary}
-              rows={4}
-              aria-label="Professional summary"
-              placeholder="What you do, how long you have been doing it, and the thing you want them to remember."
-              className="border-line bg-surface"
-              onChange={(event) =>
-                updateResume(resume.id, (draft) => {
-                  draft.summary = event.target.value;
-                })
-              }
-            />
-          </SectionShell>
-
-          <ExperienceEditor resume={resume} master={master} diff={diff} />
-          <ProjectsEditor resume={resume} master={master} diff={diff} />
-          <EducationEditor resume={resume} master={master} diff={diff} />
-          <SkillsEditor resume={resume} master={master} diff={diff} />
+            <SortableContext
+              items={sectionOrder}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="space-y-3">
+                {sectionOrder.map((key) => (
+                  <SortableSection key={key} id={key}>
+                    {sectionRenderers[key]()}
+                  </SortableSection>
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
         </div>
 
         <div

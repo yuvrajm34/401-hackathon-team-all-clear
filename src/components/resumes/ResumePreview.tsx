@@ -1,8 +1,8 @@
 "use client";
 
 import { cn } from "@/lib/cn";
-import { dateRangeLabel, visibleResume } from "@/lib/resume";
-import type { Resume } from "@/lib/types";
+import { dateRangeLabel, getSectionOrder, visibleResume } from "@/lib/resume";
+import type { Resume, ResumeSectionKey } from "@/lib/types";
 
 /**
  * WYSIWYG resume sheet. Always rendered on white regardless of the app theme
@@ -68,13 +68,39 @@ export function ResumePreview({
         ) : null}
       </header>
 
-      {resume.summary.trim() ? (
+      {getSectionOrder(resume).map((key) => (
+        <SectionByKey key={key} sectionKey={key} resume={resume} visible={visible} />
+      ))}
+
+      {isEmpty(resume) ? (
+        <p className="py-12 text-center text-[11px] text-neutral-400">
+          Fill in the editor and your resume will appear here.
+        </p>
+      ) : null}
+    </article>
+  );
+}
+
+/** Renders one top-level section by key, or nothing if it has no content. */
+function SectionByKey({
+  sectionKey,
+  resume,
+  visible,
+}: {
+  sectionKey: ResumeSectionKey;
+  resume: Resume;
+  visible: ReturnType<typeof visibleResume>;
+}) {
+  switch (sectionKey) {
+    case "summary":
+      return resume.summary.trim() ? (
         <Section title="Summary">
           <p className="text-neutral-800">{resume.summary.trim()}</p>
         </Section>
-      ) : null}
+      ) : null;
 
-      {visible.education.length > 0 ? (
+    case "education":
+      return visible.education.length > 0 ? (
         <Section title="Education">
           <div className="space-y-1.5">
             {visible.education.map((item) => (
@@ -92,9 +118,10 @@ export function ResumePreview({
             ))}
           </div>
         </Section>
-      ) : null}
+      ) : null;
 
-      {visible.experience.length > 0 ? (
+    case "experience":
+      return visible.experience.length > 0 ? (
         <Section title="Experience">
           <div className="space-y-2">
             {visible.experience.map((item) => (
@@ -110,9 +137,10 @@ export function ResumePreview({
             ))}
           </div>
         </Section>
-      ) : null}
+      ) : null;
 
-      {visible.projects.length > 0 ? (
+    case "projects":
+      return visible.projects.length > 0 ? (
         <Section title="Projects">
           <div className="space-y-2">
             {visible.projects.map((item) => (
@@ -149,9 +177,10 @@ export function ResumePreview({
             ))}
           </div>
         </Section>
-      ) : null}
+      ) : null;
 
-      {visible.skills.length > 0 ? (
+    case "skills":
+      return visible.skills.length > 0 ? (
         <Section title="Technical Skills">
           <ul className="space-y-0.5">
             {visible.skills.map((group) => (
@@ -164,15 +193,11 @@ export function ResumePreview({
             ))}
           </ul>
         </Section>
-      ) : null}
+      ) : null;
 
-      {isEmpty(resume) ? (
-        <p className="py-12 text-center text-[11px] text-neutral-400">
-          Fill in the editor and your resume will appear here.
-        </p>
-      ) : null}
-    </article>
-  );
+    default:
+      return null;
+  }
 }
 
 function isEmpty(resume: Resume): boolean {

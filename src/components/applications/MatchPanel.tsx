@@ -9,13 +9,16 @@ import { Panel, PanelBody, PanelHeader } from "@/components/ui/Panel";
 import { ProgressRing } from "@/components/ui/ProgressRing";
 import { toast } from "@/components/ui/Toaster";
 import { cn } from "@/lib/cn";
-import { buildMatchReport, scoreLabel } from "@/lib/keywords";
+import {
+  buildMatchReport,
+  classifySkillCategory,
+  scoreLabel,
+  skillGroupMatchesCategory,
+} from "@/lib/keywords";
 import { createSkillGroup } from "@/lib/resume";
 import { resumeText } from "@/lib/resume";
 import type { Application, Resume } from "@/lib/types";
 import { useAppStore } from "@/store/useAppStore";
-
-const EXTRA_GROUP_LABEL = "Additional skills";
 
 /**
  * Compares the job description against the resume attached to this
@@ -77,12 +80,28 @@ export function MatchPanel({
   const addKeywordToResume = (keyword: string) => {
     if (!resume) return;
 
+    // Land the keyword in whichever existing group already represents its
+    // category (e.g. a Python match joins an existing "Languages" or
+    // "Programming Languages" group) instead of always piling everything
+    // into one generic "Additional skills" bucket. Only falls back to a
+    // fresh, properly-labeled group when nothing matches.
+    const category = classifySkillCategory(keyword);
+    const existingGroup = resume.skills.find((group) =>
+      skillGroupMatchesCategory(group.label, category),
+    );
+    const targetLabel = existingGroup?.label ?? category;
+
     updateResume(resume.id, (draft) => {
-      let group = draft.skills.find(
-        (candidate) => candidate.label === EXTRA_GROUP_LABEL,
-      );
+      let group = existingGroup
+        ? draft.skills.find((candidate) => candidate.id === existingGroup.id)
+        : undefined;
       if (!group) {
-        group = createSkillGroup(EXTRA_GROUP_LABEL);
+        group = draft.skills.find((candidate) =>
+          skillGroupMatchesCategory(candidate.label, category),
+        );
+      }
+      if (!group) {
+        group = createSkillGroup(category);
         draft.skills.push(group);
       }
       group.enabled = true;
@@ -93,7 +112,7 @@ export function MatchPanel({
       }
     });
 
-    toast(`Added "${keyword}" to ${resume.name}`);
+    toast(`Added "${keyword}" to ${targetLabel} on ${resume.name}`);
   };
 
   return (
@@ -181,9 +200,10 @@ export function MatchPanel({
                   ))}
                 </ul>
                 <p className="mt-1.5 text-[11px] text-ink-subtle">
-                  Adding a term drops it into an &ldquo;{EXTRA_GROUP_LABEL}&rdquo;
-                  group so you can move it somewhere better in the editor. Only
-                  claim what is true.
+                  Adding a term joins a matching skill group if you have one
+                  (e.g. a language joins &ldquo;Languages&rdquo;), or starts a
+                  new one — nothing gets dumped into one catch-all bucket.
+                  Only claim what is true.
                 </p>
               </section>
             ) : (

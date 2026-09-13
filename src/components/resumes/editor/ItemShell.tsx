@@ -1,9 +1,12 @@
 "use client";
 
+import { CSS } from "@dnd-kit/utilities";
+import { useSortable } from "@dnd-kit/sortable";
 import {
   ChevronDown,
   Eye,
   EyeOff,
+  GripHorizontal,
   RotateCcw,
   Trash2,
 } from "lucide-react";
@@ -188,4 +191,48 @@ export function moveItem<T>(items: T[], from: number, to: number) {
   if (to < 0 || to >= items.length) return;
   const [entry] = items.splice(from, 1);
   items.splice(to, 0, entry);
+}
+
+/**
+ * Drag-to-reorder wrapper for a whole top-level resume section (Summary,
+ * Experience, Projects, Education, Skills). `id` must match the string
+ * used in the parent `SortableContext`'s `items` array. `@dnd-kit` handles
+ * the live slide-into-place animation as items reorder — no extra
+ * animation code needed here.
+ */
+export function SortableSection({
+  id,
+  children,
+}: {
+  id: string;
+  children: ReactNode;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={cn(isDragging && "z-20")}
+    >
+      <div
+        {...attributes}
+        {...listeners}
+        role="button"
+        tabIndex={0}
+        aria-label="Drag to reorder this section"
+        className="mb-1 flex h-5 touch-none cursor-grab items-center justify-center rounded-md text-ink-subtle/40 transition hover:bg-surface-muted hover:text-ink-subtle active:cursor-grabbing"
+      >
+        <GripHorizontal size={14} aria-hidden="true" />
+      </div>
+      <div className={cn(isDragging && "opacity-60")}>{children}</div>
+    </div>
+  );
 }

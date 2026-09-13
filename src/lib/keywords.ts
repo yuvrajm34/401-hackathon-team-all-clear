@@ -265,3 +265,77 @@ export function scoreLabel(score: number): {
   if (score >= 45) return { label: "Partial match", tone: "fair" };
   return { label: "Needs work", tone: "weak" };
 }
+
+/**
+ * Rough skill categories for placing a missing keyword somewhere sensible
+ * instead of always dumping it into a generic bucket. Deliberately a small,
+ * fast lookup table (no AI call) — this runs on every "add to resume"
+ * click and needs to feel instant.
+ */
+const SKILL_CATEGORIES: { label: string; matches: string[] }[] = [
+  {
+    label: "Languages",
+    matches: [
+      "python", "java", "javascript", "typescript", "c++", "c#", "golang",
+      "go", "rust", "ruby", "php", "swift", "kotlin", "sql", "html", "css",
+      "scala", "r", "matlab", "bash", "shell", "perl", "dart", "objective-c",
+    ],
+  },
+  {
+    label: "Frameworks",
+    matches: [
+      "react", "next.js", "nextjs", "vue", "angular", "django", "flask",
+      "express", "spring", "spring boot", "rails", "laravel", ".net",
+      "fastapi", "node.js", "nodejs", "svelte", "nestjs", "gin",
+    ],
+  },
+  {
+    label: "Cloud & DevOps",
+    matches: [
+      "aws", "azure", "gcp", "google cloud", "ci/cd", "cicd",
+      "github actions", "devops", "terraform", "ansible", "jenkins",
+      "kubernetes", "docker",
+    ],
+  },
+  {
+    label: "Databases",
+    matches: [
+      "postgresql", "postgres", "mysql", "mongodb", "redis", "sqlite",
+      "dynamodb", "cassandra", "oracle", "elasticsearch", "firebase",
+    ],
+  },
+  {
+    label: "Tools",
+    matches: [
+      "git", "jira", "figma", "postman", "webpack", "vite", "confluence",
+      "slack", "linux",
+    ],
+  },
+];
+
+/** Best-guess category label for a keyword, or "Additional skills" if none match. */
+export function classifySkillCategory(keyword: string): string {
+  const lower = keyword.trim().toLowerCase();
+  for (const category of SKILL_CATEGORIES) {
+    if (category.matches.some((term) => lower === term || lower.includes(term))) {
+      return category.label;
+    }
+  }
+  return "Additional skills";
+}
+
+/**
+ * Whether an existing skill group's own label plausibly represents the
+ * given category — tolerant of real-world variants like "Programming
+ * Languages" or "Scripting & Languages" both counting as "Languages", so a
+ * keyword lands in the resume's own existing grouping instead of a second,
+ * redundant one.
+ */
+export function skillGroupMatchesCategory(label: string, category: string): boolean {
+  const a = label.trim().toLowerCase();
+  const b = category.trim().toLowerCase();
+  if (!a || !b) return false;
+  if (a === b) return true;
+  const bSingular = b.replace(/s$/, "");
+  return a.includes(bSingular) || b.includes(a);
+}

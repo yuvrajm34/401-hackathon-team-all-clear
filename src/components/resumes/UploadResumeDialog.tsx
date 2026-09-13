@@ -69,8 +69,10 @@ function UploadResumeDialogInner({ open, onClose }: UploadResumeDialogProps) {
   const [error, setError] = useState("");
   const [parsed, setParsed] = useState<ParsedResume | null>(null);
 
-  // Guards so a slow AI call doesn't set state after the user picked a
-  // different file, or after the dialog closed (component unmounted).
+  // Guards so a slow background AI call doesn't set state after the user
+  // already applied the quick result, picked a different file, or closed
+  // the dialog (component unmounted).
+  const appliedRef = useRef(false);
   const requestIdRef = useRef(0);
   const unmountedRef = useRef(false);
   useEffect(() => {
@@ -87,6 +89,7 @@ function UploadResumeDialogInner({ open, onClose }: UploadResumeDialogProps) {
 
   const readFile = async (file: File) => {
     const requestId = ++requestIdRef.current;
+    appliedRef.current = false;
     setBusy(true);
     setError("");
     setParsed(null);
@@ -106,30 +109,43 @@ function UploadResumeDialogInner({ open, onClose }: UploadResumeDialogProps) {
       return;
     }
 
-    // Wait for the AI pass (when there is one) before showing anything —
-    // no partial/"refining" state, just the final result once it's ready.
-    // Falls back to the quick heuristic result if AI is unavailable, fails,
-    // or comes back empty.
-    const refined = quick.refineInput
-      ? await refineResumeWithAI(quick.refineInput)
-      : null;
-    const finalResult =
-      refined && !parsedResumeIsEmpty(refined) ? refined : quick.parsed;
-
-    if (unmountedRef.current || requestId !== requestIdRef.current) return;
-
+    // Show the fast heuristic result right away — this is deliberately not
+    // gated on AI. The regex/positional-layout parser alone handles real
+    // resumes well and resolves in well under a second; waiting on a local
+    // model (10-30+ seconds, and dependent on Ollama actually running) to
+    // show *anything* made the dialog look stuck for no benefit most of
+    // the time.
     setBusy(false);
     resetPicker();
-
-    if (parsedResumeIsEmpty(finalResult)) {
+    const quickEmpty = parsedResumeIsEmpty(quick.parsed);
+    if (quickEmpty) {
       setError(EMPTY_MESSAGE);
+    } else {
+      setParsed(quick.parsed);
+    }
+
+    if (!quick.refineInput) return;
+
+    // If a better AI result arrives later, swap it in silently — but only
+    // if this is still the active request, the user hasn't already hit
+    // "Use this file", and the dialog is still open.
+    const refined = await refineResumeWithAI(quick.refineInput);
+    if (
+      unmountedRef.current ||
+      appliedRef.current ||
+      requestId !== requestIdRef.current
+    ) {
       return;
     }
-    setParsed(finalResult);
+    if (refined && !parsedResumeIsEmpty(refined)) {
+      setParsed(refined);
+      setError("");
+    }
   };
 
   const apply = () => {
     if (!parsed) return;
+    appliedRef.current = true;
     const { id, applied } = applyParsedMaster(parsed);
     const highlight = applied
       .filter((item) =>

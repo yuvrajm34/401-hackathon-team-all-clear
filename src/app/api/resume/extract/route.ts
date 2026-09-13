@@ -9,6 +9,10 @@ import { extractResumeFromBytes } from "@/lib/resume-extract";
 export const runtime = "nodejs";
 
 const MAX_BYTES = 8 * 1024 * 1024;
+// unpdf/pdf.js can hang (not just error) on specific malformed embedded
+// fonts or corrupt structures — without a ceiling, one bad file would hang
+// this request indefinitely with no way for the caller to recover.
+const EXTRACT_TIMEOUT_MS = 30_000;
 
 export async function POST(request: Request) {
   const form = await request.formData();
@@ -26,7 +30,15 @@ export async function POST(request: Request) {
 
   try {
     const bytes = new Uint8Array(await file.arrayBuffer());
-    const extracted = await extractResumeFromBytes(file.name, bytes);
+    const extracted = await Promise.race([
+      extractResumeFromBytes(file.name, bytes),
+      new Promise<never>((_, reject) =>
+        setTimeout(
+          () => reject(new Error("That file took too long to read — it may have a corrupt or unusual structure. Try re-exporting it as a PDF.")),
+          EXTRACT_TIMEOUT_MS,
+        ),
+      ),
+    ]);
     return Response.json(extracted);
   } catch (caught) {
     const message =

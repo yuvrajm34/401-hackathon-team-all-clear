@@ -60,7 +60,11 @@ function DiscoverViewInner() {
   const [company, setCompany] = useState("all");
   const [family, setFamily] = useState<JobFamily | null>(null);
   const [remoteOnly, setRemoteOnly] = useState(false);
-  const [sort, setSort] = useState<SortMode>("newest");
+  // Default to sorting by match once a master resume exists to score
+  // against — otherwise there's nothing to match on, so newest is the only
+  // sort that means anything. Only applies on mount; a user's manual
+  // choice afterward isn't overridden.
+  const [sort, setSort] = useState<SortMode>(() => (master ? "match" : "newest"));
   const [page, setPage] = useState(1);
 
   /** Bumped to re-run the search when nothing about the filters changed. */
