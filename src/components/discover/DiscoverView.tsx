@@ -339,6 +339,27 @@ function DiscoverViewInner() {
             ))}
           </Select>
 
+          <Select
+            value={family ?? "all"}
+            onChange={(event) => {
+              setFamily(
+                event.target.value === "all"
+                  ? null
+                  : (event.target.value as JobFamily),
+              );
+              setPage(1);
+            }}
+            aria-label="Filter by field"
+            className="w-auto"
+          >
+            <option value="all">All fields</option>
+            {JOB_FAMILIES.map((item) => (
+              <option key={item} value={item}>
+                {item} ({familyCounts[item] ?? 0})
+              </option>
+            ))}
+          </Select>
+
           <SegmentedControl<string>
             ariaLabel="Posted date"
             value={postedWindowParam(posted)}
@@ -371,7 +392,7 @@ function DiscoverViewInner() {
           ) : null}
         </div>
 
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-2">
           <FilterChip
             active={workMode === "all"}
             onClick={() => {
@@ -393,36 +414,6 @@ function DiscoverViewInner() {
               {WORK_MODE_CHIP[mode]}
             </FilterChip>
           ))}
-        </div>
-
-        <div className="flex flex-wrap items-center gap-1.5">
-          <FilterChip
-            active={family === null}
-            onClick={() => {
-              setFamily(null);
-              setPage(1);
-            }}
-          >
-            All fields
-          </FilterChip>
-          {JOB_FAMILIES.map((item) => {
-            const count = familyCounts[item] ?? 0;
-            if (count === 0 && family !== item) return null;
-
-            return (
-              <FilterChip
-                key={item}
-                active={family === item}
-                onClick={() => {
-                  setFamily(family === item ? null : item);
-                  setPage(1);
-                }}
-              >
-                {item}
-                <span className="ml-1 text-ink-subtle">{count}</span>
-              </FilterChip>
-            );
-          })}
         </div>
 
         {!master ? (
@@ -546,7 +537,7 @@ function FilterChip({
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        "chip-tone rounded-full px-2.5 py-1 text-xs font-medium",
+        "chip-tone inline-flex h-10 items-center rounded-xl px-3 text-sm font-medium",
         active
           ? "bg-brand-soft text-brand-on-soft"
           : "bg-surface-muted text-ink-muted hover:text-ink",
