@@ -1,7 +1,4 @@
-/**
- * Image and wash live only in the content well. Chrome (sidebar, header,
- * ticker, tab bar) sits outside this layer and stays opaque.
- */
+/** Full-viewport backdrop behind the floating app controls and page content. */
 export function AtmosphereWell() {
   return (
     <div className="atmosphere-well print:hidden" aria-hidden="true">

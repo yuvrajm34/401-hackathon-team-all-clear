@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  CalendarDays,
   Compass,
   FileText,
   LayoutDashboard,
@@ -147,7 +148,18 @@ const NAV: NavItem[] = [
     shortLabel: "Track",
     icon: SquareKanban,
   },
-  { href: "/discover", label: "Discover", shortLabel: "Find", icon: Compass },
+  {
+    href: "/calendar",
+    label: "Calendar",
+    shortLabel: "Cal",
+    icon: CalendarDays,
+  },
+  {
+    href: "/discover",
+    label: "Discover Jobs",
+    shortLabel: "Find",
+    icon: Compass,
+  },
   { href: "/resumes", label: "Resumes", shortLabel: "Resumes", icon: FileText },
   { href: "/settings", label: "Settings", shortLabel: "Settings", icon: Settings },
 ];
@@ -186,6 +198,8 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="relative z-10 flex h-dvh flex-col overflow-hidden">
+      <AtmosphereWell />
+
       <header className="pointer-events-none fixed inset-x-0 top-0 z-40 flex items-center justify-center px-3 pt-3 print:hidden">
         <motion.div
           initial="hidden"
@@ -222,7 +236,6 @@ export function AppShell({ children }: { children: ReactNode }) {
         onScroll={handleScroll}
         className="print-root relative isolate min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-4 pb-28 pt-16 sm:px-6"
       >
-        <AtmosphereWell />
         <div className="relative z-10">{children}</div>
       </main>
 
@@ -241,7 +254,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   aria-current={active ? "page" : undefined}
                   aria-label={item.label}
                   className={cn(
-                    "flex items-center gap-1.5 rounded-full px-2.5 py-2 text-[11px] font-medium transition-colors duration-200 ease-[var(--ease-emphasized)] sm:px-3.5 sm:text-sm",
+                    "flex items-center gap-1.5 rounded-full px-2 py-2 text-[11px] font-medium transition-colors duration-200 ease-[var(--ease-emphasized)] sm:px-3 sm:text-sm",
                     active
                       ? "bg-brand-soft text-brand-on-soft"
                       : "text-ink-muted hover:bg-surface-muted hover:text-ink",

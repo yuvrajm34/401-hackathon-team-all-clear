@@ -287,19 +287,7 @@ function DiscoverViewInner() {
   return (
     <>
       <PageHeader
-        eyebrow="Live from Greenhouse"
-        title="Discover"
-        description={
-          data
-            ? `${total.toLocaleString()} open roles across ${COMPANIES.length} companies${
-                includeDemoJobs
-                  ? `, including ${visibleDemo.length} sample posting${
-                      visibleDemo.length === 1 ? "" : "s"
-                    } for the date filter`
-                  : ""
-              }, scored against your master resume.`
-            : `Search real openings across ${COMPANIES.length} companies hiring through Greenhouse.`
-        }
+        title="Discover Jobs"
         actions={
           <SegmentedControl<SortMode>
             ariaLabel="Sort results"

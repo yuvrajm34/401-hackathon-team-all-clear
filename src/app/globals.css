@@ -138,24 +138,22 @@
   }
 
   .atmosphere-well {
-    position: sticky;
-    top: 0;
+    position: fixed;
+    inset: 0;
     z-index: 0;
-    height: 0;
     pointer-events: none;
   }
 
   .atmosphere-well-photo,
   .atmosphere-well-scrim {
     position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
     pointer-events: none;
   }
 
   [data-atmosphere="apple"] .atmosphere-well-photo {
-    top: -1.25rem;
-    left: -1rem;
-    width: calc(100% + 2rem);
-    height: calc(100dvh + 1.25rem);
     background:
       radial-gradient(
         90% 65% at 8% 6%,
@@ -172,13 +170,6 @@
         color-mix(in srgb, var(--brand) 18%, transparent),
         transparent 55%
       );
-  }
-
-  @media (min-width: 40rem) {
-    [data-atmosphere="apple"] .atmosphere-well-photo {
-      left: -1.5rem;
-      width: calc(100% + 3rem);
-    }
   }
 
   [data-atmosphere="apple"][data-theme="light"] .atmosphere-well-photo {
@@ -204,29 +195,18 @@
     display: none;
   }
 
-  /* Framed photo in the well only — not a full-bleed wallpaper. */
+  /* Uploaded images use the same full-viewport backdrop as the wash. */
   [data-atmosphere="image"] .atmosphere-well-photo {
-    top: 1.25rem;
-    right: 1.25rem;
-    left: 1.25rem;
-    height: min(38vh, 22rem);
-    border-radius: 1.75rem;
     background-color: var(--canvas-accent);
     background-image: var(--atmosphere-image);
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
     opacity: calc(1 - var(--atmosphere-dim, 0.55));
-    mask-image: linear-gradient(to bottom, #000 40%, transparent 100%);
-    -webkit-mask-image: linear-gradient(to bottom, #000 40%, transparent 100%);
   }
 
-  /* Fixed scrim. Same weight for every photo. Not tied to the dim slider. */
+  /* Same full-page scrim weight for every uploaded image. */
   [data-atmosphere="image"] .atmosphere-well-scrim {
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100dvh;
     background: color-mix(in srgb, var(--canvas) 78%, transparent);
   }
 
