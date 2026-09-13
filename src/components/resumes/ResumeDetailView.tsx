@@ -219,12 +219,26 @@ function ResumeDetailInner({ id }: { id: string }) {
       <header className="space-y-3 print:hidden">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <TextInput
-              value={resume.name}
-              aria-label="Resume name"
-              onChange={(event) => renameResume(resume.id, event.target.value)}
-              className="max-w-sm border-transparent bg-transparent px-1 text-lg font-semibold shadow-none hover:border-line"
-            />
+            <div className="flex min-w-0 items-center gap-1.5">
+              <TextInput
+                value={resume.name}
+                aria-label="Resume name"
+                onChange={(event) => renameResume(resume.id, event.target.value)}
+                className={cn(
+                  "border-transparent bg-transparent px-1 text-lg font-semibold shadow-none hover:border-line",
+                  resume.isMaster ? "max-w-64" : "max-w-sm",
+                )}
+              />
+              {resume.isMaster ? (
+                <span
+                  className="shrink-0 text-accent"
+                  aria-label="Master resume"
+                  title="Master resume"
+                >
+                  <Crown size={16} aria-hidden="true" />
+                </span>
+              ) : null}
+            </div>
 
             {!resume.isMaster || overOnePage ? (
               <p className="mt-1 px-1 text-xs text-ink-muted">
