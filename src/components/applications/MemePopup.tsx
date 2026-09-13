@@ -61,6 +61,18 @@ function MemeCard({ stage, onDone }: { stage: Stage; onDone: () => void }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    if (!meme?.sound) return;
+    const audio = new Audio(meme.sound);
+    audio.volume = 0.7;
+    // Autoplay can still be blocked without a prior user gesture — the
+    // drag itself counts as one in every browser tested, but fail silently
+    // rather than throw if some environment disagrees.
+    void audio.play().catch(() => {});
+    return () => audio.pause();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   if (!meme) return null;
 
   return (

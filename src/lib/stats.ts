@@ -38,7 +38,7 @@ const FUNNEL_LABELS: Record<Stage, string> = {
   applied: "Applied",
   interview: "Interviewed",
   offer: "Offers",
-  rejected: "Closed",
+  rejected: "Rejected",
 };
 
 /**

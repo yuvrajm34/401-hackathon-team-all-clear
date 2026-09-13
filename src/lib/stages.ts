@@ -60,7 +60,7 @@ export const STAGE_META: Record<Stage, StageMeta> = {
   },
   rejected: {
     id: "rejected",
-    label: "Closed",
+    label: "Rejected",
     hint: "Rejected or withdrawn",
     badge: "bg-surface-muted text-ink-muted",
     accent: "text-ink-muted",

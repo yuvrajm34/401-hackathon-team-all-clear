@@ -4,6 +4,8 @@ interface MemeConfig {
   images: string[];
   /** Good news gets a confetti burst; bad news just pops up and fades. */
   confetti: boolean;
+  /** Plays once, right as the popup appears. Not every stage has one. */
+  sound?: string;
 }
 
 /**
@@ -13,7 +15,11 @@ interface MemeConfig {
 const MEME_CONFIG: Partial<Record<Stage, MemeConfig>> = {
   applied: { images: ["/memes/applied.jpg"], confetti: true },
   interview: { images: ["/memes/interview.jpg"], confetti: true },
-  offer: { images: ["/memes/offer.jpg"], confetti: true },
+  offer: {
+    images: ["/memes/offer.jpg"],
+    confetti: true,
+    sound: "/memes/cha-ching.mp3",
+  },
   rejected: {
     images: [
       "/memes/rejection.jpg",
@@ -21,12 +27,14 @@ const MEME_CONFIG: Partial<Record<Stage, MemeConfig>> = {
       "/memes/rejection3.jpg",
     ],
     confetti: false,
+    sound: "/memes/faah.mp3",
   },
 };
 
 export interface MemePick {
   src: string;
   confetti: boolean;
+  sound?: string;
 }
 
 /** Last image shown per stage, so a stage with more than one option (only
@@ -47,7 +55,7 @@ export function pickMemeForStage(stage: Stage): MemePick | null {
 
   const src = pool[Math.floor(Math.random() * pool.length)];
   lastShownByStage.set(stage, src);
-  return { src, confetti: config.confetti };
+  return { src, confetti: config.confetti, sound: config.sound };
 }
 
 export function hasMemeForStage(stage: Stage): boolean {
