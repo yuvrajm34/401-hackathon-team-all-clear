@@ -95,8 +95,16 @@ export function AppShell({ children }: { children: ReactNode }) {
       </aside>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        {/* Header: brand on mobile, actions on every size */}
-        <header className="app-chrome sticky top-0 z-30 flex h-14 items-center justify-between gap-3 bg-surface px-4 shadow-card sm:px-6 print:hidden">
+        {/* Header: brand on mobile, actions on every size. On desktop the
+            sidebar already covers brand and theme, so the bar itself is
+            only needed where it has something to show (Discover's add
+            button) — otherwise it would just be an empty strip. */}
+        <header
+          className={cn(
+            "app-chrome sticky top-0 z-30 flex h-14 items-center justify-between gap-3 bg-surface px-4 shadow-card sm:px-6 print:hidden",
+            !isActive(pathname, "/discover") && "md:hidden",
+          )}
+        >
           <div className="md:hidden">
             <Wordmark compact />
           </div>
@@ -106,12 +114,16 @@ export function AppShell({ children }: { children: ReactNode }) {
             <span className="md:hidden">
               <ThemeToggle compact />
             </span>
-            <span className="hidden sm:block">
-              <QuickAddButton size="sm" />
-            </span>
-            <span className="sm:hidden">
-              <QuickAddButton iconOnly variant="primary" />
-            </span>
+            {isActive(pathname, "/discover") ? (
+              <>
+                <span className="hidden sm:block">
+                  <QuickAddButton size="sm" />
+                </span>
+                <span className="sm:hidden">
+                  <QuickAddButton iconOnly variant="primary" />
+                </span>
+              </>
+            ) : null}
           </div>
         </header>
 

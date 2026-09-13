@@ -110,7 +110,7 @@ export function JobPostingPreview({
             />
             <PanelBody>
               {listing.description ? (
-                <div className="scrollbar-slim max-h-96 overflow-x-hidden overflow-y-auto whitespace-pre-wrap break-words text-xs leading-relaxed text-ink-muted">
+                <div className="whitespace-pre-wrap break-words text-xs leading-relaxed text-ink-muted">
                   {listing.description}
                 </div>
               ) : (

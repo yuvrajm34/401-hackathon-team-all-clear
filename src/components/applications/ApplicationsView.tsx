@@ -148,23 +148,26 @@ function ApplicationsViewInner() {
           applications.filter((a) => a.stage !== "wishlist").length
         } submitted`}
         actions={
-          <SegmentedControl<ViewMode>
-            ariaLabel="Layout"
-            value={view}
-            onChange={setView}
-            segments={[
-              {
-                value: "board",
-                label: "Board",
-                icon: <SquareKanban size={14} aria-hidden="true" />,
-              },
-              {
-                value: "list",
-                label: "List",
-                icon: <List size={14} aria-hidden="true" />,
-              },
-            ]}
-          />
+          <>
+            <SegmentedControl<ViewMode>
+              ariaLabel="Layout"
+              value={view}
+              onChange={setView}
+              segments={[
+                {
+                  value: "board",
+                  label: "Board",
+                  icon: <SquareKanban size={14} aria-hidden="true" />,
+                },
+                {
+                  value: "list",
+                  label: "List",
+                  icon: <List size={14} aria-hidden="true" />,
+                },
+              ]}
+            />
+            <QuickAddButton size="sm" />
+          </>
         }
       />
 

@@ -1,23 +1,15 @@
 "use client";
 
 import { useDraggable } from "@dnd-kit/core";
-import {
-  Bell,
-  Calendar,
-  FileText,
-  GripVertical,
-  Mail,
-  MapPin,
-  MoveRight,
-} from "lucide-react";
+import { Bell, Calendar, FileText, Mail, MapPin } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
-import type { CSSProperties, ReactNode, Ref } from "react";
+import { useEffect, useRef } from "react";
+import type { CSSProperties, MouseEvent, Ref } from "react";
 
 import { cn } from "@/lib/cn";
 import { formatRelativeDay, formatShortDate, todayIso } from "@/lib/dates";
-import { STAGE_META, WORK_MODE_LABELS } from "@/lib/stages";
-import { STAGES, type Application, type Stage } from "@/lib/types";
+import { WORK_MODE_LABELS } from "@/lib/stages";
+import type { Application } from "@/lib/types";
 
 import { StageBadge } from "./StageBadge";
 
@@ -30,26 +22,45 @@ export interface ApplicationCardMeta {
   followUpDue: boolean;
 }
 
-/** Draggable card used inside the Kanban columns. */
+/**
+ * Draggable card used inside the Kanban columns. The whole card is the drag
+ * handle — press and drag anywhere on it to move it between stages; a plain
+ * click (no movement past the activation threshold) still opens the detail
+ * page via the inner link.
+ */
 export function ApplicationCard({
   application,
   meta,
-  onMove,
 }: {
   application: Application;
   meta: ApplicationCardMeta;
-  onMove: (stage: Stage) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({ id: application.id });
+
+  // A completed drag must not also trigger the card's link navigation. Track
+  // it in a ref (not state) so the click handler sees it immediately —
+  // `isDragging` flips true well before pointerup, so the ref is reliably
+  // set by the time the browser's click event fires after drop.
+  const draggedRef = useRef(false);
+  useEffect(() => {
+    if (isDragging) draggedRef.current = true;
+  }, [isDragging]);
 
   return (
     <CardShell
       application={application}
       meta={meta}
-      onMove={onMove}
       nodeRef={setNodeRef}
       dragging={isDragging}
+      dragAttributes={attributes}
+      dragListeners={listeners}
+      onLinkClick={(event) => {
+        if (draggedRef.current) {
+          event.preventDefault();
+          draggedRef.current = false;
+        }
+      }}
       style={
         transform
           ? {
@@ -57,18 +68,6 @@ export function ApplicationCard({
               zIndex: 40,
             }
           : undefined
-      }
-      dragHandle={
-        <button
-          type="button"
-          {...attributes}
-          {...listeners}
-          aria-label={`Drag ${application.company} to another stage`}
-          // Always visible on touch layouts, where there is no hover to reveal it.
-          className="flex h-7 w-5 cursor-grab touch-none items-center justify-center rounded text-ink-subtle transition hover:text-ink active:cursor-grabbing md:opacity-0 md:focus-visible:opacity-100 md:group-hover:opacity-100"
-        >
-          <GripVertical size={14} aria-hidden="true" />
-        </button>
       }
     />
   );
@@ -92,59 +91,60 @@ export function ApplicationCardPreview({
 function CardShell({
   application,
   meta,
-  onMove,
   nodeRef,
   style,
   dragging = false,
-  dragHandle,
+  dragAttributes,
+  dragListeners,
+  onLinkClick,
 }: {
   application: Application;
   meta: ApplicationCardMeta;
-  onMove?: (stage: Stage) => void;
   nodeRef?: Ref<HTMLElement>;
   style?: CSSProperties;
   dragging?: boolean;
-  dragHandle?: ReactNode;
+  dragAttributes?: ReturnType<typeof useDraggable>["attributes"];
+  dragListeners?: ReturnType<typeof useDraggable>["listeners"];
+  onLinkClick?: (event: MouseEvent<HTMLAnchorElement>) => void;
 }) {
+  // Presence of drag listeners distinguishes the in-column card (hidden while
+  // dragging) from the static DragOverlay preview (which stays visible).
+  const isSource = Boolean(dragListeners);
+
   return (
     <article
       ref={nodeRef}
       style={style}
+      {...dragAttributes}
+      {...dragListeners}
+      aria-label={`${application.company}, ${application.position}. Press and drag, or use arrow keys, to move between stages.`}
       className={cn(
-        "group relative rounded-[1.75rem] bg-surface p-3 shadow-card transition-[box-shadow,transform] duration-200 ease-[var(--ease-emphasized)]",
-        dragging && dragHandle
+        "group relative touch-none select-none rounded-[1.75rem] bg-surface p-3 shadow-card transition-[box-shadow,transform] duration-200 ease-[var(--ease-emphasized)]",
+        dragging && isSource
           ? "cursor-grabbing opacity-0"
           : dragging
             ? "cursor-grabbing shadow-raised"
-            : "hover:shadow-raised",
+            : "cursor-grab hover:shadow-raised",
       )}
     >
-      <div className="flex items-start justify-between gap-2">
-        <Link
-          href={`/applications/${application.id}`}
-          className="min-w-0 flex-1 rounded-sm"
-        >
-          <div className="flex items-center gap-1.5">
-            <PriorityDot priority={application.priority} />
-            <h3 className="truncate text-sm font-semibold text-ink">
-              {application.company}
-            </h3>
-          </div>
-          <p className="mt-0.5 line-clamp-2 text-xs text-ink-muted">
-            {application.position}
-          </p>
-          <div className="mt-1.5">
-            <StageBadge stage={application.stage} />
-          </div>
-        </Link>
-
-        <div className="flex shrink-0 items-center">
-          {onMove ? (
-            <MoveMenu currentStage={application.stage} onMove={onMove} />
-          ) : null}
-          {dragHandle}
+      <Link
+        href={`/applications/${application.id}`}
+        className="block min-w-0 rounded-sm"
+        onClick={onLinkClick}
+      >
+        <div className="flex items-center gap-1.5">
+          <PriorityDot priority={application.priority} />
+          <h3 className="truncate text-sm font-semibold text-ink">
+            {application.company}
+          </h3>
         </div>
-      </div>
+        <p className="mt-0.5 line-clamp-2 text-xs text-ink-muted">
+          {application.position}
+        </p>
+        <div className="mt-1.5">
+          <StageBadge stage={application.stage} />
+        </div>
+      </Link>
 
       <dl className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-ink-subtle">
         {application.dateApplied ? (
@@ -236,85 +236,5 @@ function PriorityDot({ priority }: { priority: 1 | 2 | 3 }) {
     >
       <span className="sr-only">{labels[priority]}</span>
     </span>
-  );
-}
-
-/**
- * Keyboard-accessible alternative to dragging. Pointer drag is the fast path;
- * this menu makes every move reachable without a mouse.
- */
-function MoveMenu({
-  currentStage,
-  onMove,
-}: {
-  currentStage: Stage;
-  onMove: (stage: Stage) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-
-    const onPointerDown = (event: MouseEvent) => {
-      if (!containerRef.current?.contains(event.target as Node)) setOpen(false);
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
-    };
-
-    document.addEventListener("mousedown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [open]);
-
-  return (
-    <div ref={containerRef} className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((value) => !value)}
-        aria-expanded={open}
-        aria-haspopup="menu"
-        aria-label={`Move ${STAGE_META[currentStage].label} application to another stage`}
-        className={cn(
-          "flex h-7 w-6 items-center justify-center rounded text-ink-subtle transition hover:text-ink",
-          // Hidden until hover on desktop; always available on touch layouts.
-          open
-            ? "opacity-100"
-            : "md:opacity-0 md:focus-visible:opacity-100 md:group-hover:opacity-100",
-        )}
-      >
-        <MoveRight size={14} aria-hidden="true" />
-      </button>
-
-      {open ? (
-        <div
-          role="menu"
-          className="animate-pop absolute right-0 top-7 z-50 w-40 overflow-hidden rounded-2xl bg-surface-raised p-1 shadow-raised"
-        >
-          {STAGES.filter((stage) => stage !== currentStage).map((stage) => (
-            <button
-              key={stage}
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                onMove(stage);
-                setOpen(false);
-              }}
-              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-ink transition hover:bg-surface-muted"
-            >
-              <span
-                className={cn("h-1.5 w-1.5 rounded-full", STAGE_META[stage].dot)}
-                aria-hidden="true"
-              />
-              Move to {STAGE_META[stage].label}
-            </button>
-          ))}
-        </div>
-      ) : null}
-    </div>
   );
 }

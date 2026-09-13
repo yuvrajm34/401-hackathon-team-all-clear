@@ -106,7 +106,6 @@ export function KanbanBoard({
             stage={stage}
             applications={applications.filter((a) => a.stage === stage)}
             metaFor={metaFor}
-            onMove={onMove}
             isDragging={draggingId !== null}
             reduceMotion={Boolean(reduceMotion)}
           />
@@ -140,14 +139,12 @@ function StageColumn({
   stage,
   applications,
   metaFor,
-  onMove,
   isDragging,
   reduceMotion,
 }: {
   stage: Stage;
   applications: Application[];
   metaFor: (application: Application) => ApplicationCardMeta;
-  onMove: (id: string, stage: Stage) => void;
   isDragging: boolean;
   reduceMotion: boolean;
 }) {
@@ -192,7 +189,6 @@ function StageColumn({
               <ApplicationCard
                 application={application}
                 meta={metaFor(application)}
-                onMove={(next) => onMove(application.id, next)}
               />
             </motion.div>
           ))}

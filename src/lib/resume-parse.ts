@@ -189,8 +189,21 @@ function looksLikeBareLocation(line: string): boolean {
   return COUNTRY_NAMES.has(lastWord) || COUNTRY_NAMES.has(lastTwoWords);
 }
 
+// A redacted-placeholder year ("20XX"/"19XX") that sample/template resumes
+// use in place of a real date — MIT career center's widely-used sample
+// resumes (this one among them) are the common case, but any anonymized
+// template does the same. Without this, every date on that kind of resume
+// is invisible to the date regexes below, since a literal "X" isn't a
+// digit. Only added where a real year could otherwise go — a bare 2-digit
+// placeholder isn't supported since "XX" alone is too easily a false
+// positive outside a year's specific 4-digit shape.
+const PLACEHOLDER_YEAR = "(?:19|20)XX";
 const DATE_TOKEN =
-  "(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?|[0-3]?\\d)(?:[./\\s-]\\d{2,4})?|\\d{4}";
+  "(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?|[0-3]?\\d)(?:[./\\s-](?:\\d{2,4}|" +
+  PLACEHOLDER_YEAR +
+  "))?|(?:\\d{4}|" +
+  PLACEHOLDER_YEAR +
+  ")";
 // Separator between the two ends of a date range — either a dash of some
 // kind or the literal word "to" ("Jan 2024 to Present"), which is at least
 // as common on real resumes as an en/em dash.
@@ -199,8 +212,16 @@ const DATE_RANGE_RE = new RegExp(
   `^(${DATE_TOKEN})\\s*${DATE_SEP}\\s*(${DATE_TOKEN}|Present|Current|Now|Ongoing)$`,
   "i",
 );
+// The 4th alternative (a lone trailing date, no range) matters for short
+// entries a resume lists with just one timestamp instead of a start-end
+// range — a single-month internship, a one-off event, etc. ("Robotics
+// Company    January 20XX"). Without it, a line like that never gets its
+// date peeled off at all, so the whole messy "Company   Date" string ends
+// up mistaken for the role with no company, and the real title on the next
+// line is passed to `parseStackedHeader` — but only when a date was
+// actually found there, so this line silently skipped that path entirely.
 const TRAILING_DATE_RE = new RegExp(
-  `\\s+(?:(Expected\\s+.+)|(?:(${DATE_TOKEN})\\s*${DATE_SEP}\\s*(${DATE_TOKEN}|Present|Current|Now|Ongoing)))$`,
+  `\\s+(?:(Expected\\s+.+)|(?:(${DATE_TOKEN})\\s*${DATE_SEP}\\s*(${DATE_TOKEN}|Present|Current|Now|Ongoing))|(${DATE_TOKEN}))$`,
   "i",
 );
 
@@ -586,11 +607,17 @@ function splitSections(lines: string[]): Partial<Record<SectionKey, string[]>> {
  * conservative (only applied to short, heading-shaped lines in
  * `sectionOf`) to avoid misclassifying ordinary body text.
  */
+// Order matters: `sectionOf` returns the first matching key below, so a
+// heading matching more than one stem list resolves to whichever key comes
+// first here. `projects` is listed first because it's the most specific,
+// least ambiguous stem ("project") — a heading like "Relevant Project
+// Experience" or "Academic Projects" also contains "experien"/"academ" and
+// would otherwise resolve to the wrong, more generic section.
 const SECTION_STEMS: Record<SectionKey, string[]> = {
+  projects: ["project"],
   summary: ["summar", "objective", "profile", "highlight", "qualificat"],
   experience: ["experien", "employ", "work histor", "career", "worked"],
   education: ["educat", "academ", "school", "degree", "universit", "colleg"],
-  projects: ["project"],
   skills: [
     "skill",
     "technical",
@@ -601,6 +628,19 @@ const SECTION_STEMS: Record<SectionKey, string[]> = {
     "expertise",
   ],
 };
+
+/**
+ * Common job-title suffixes. A short line ending in one of these ("Education
+ * Design Intern", "Marketing Coordinator") is virtually always a role title
+ * inside an entry, never a section heading — even though it may otherwise
+ * pass every other heading-shaped check below (short, no punctuation, and
+ * happens to contain a section stem like "educat"). Without this guard, a
+ * title like that gets misread as a new "Education" section header mid
+ * Experience, which both loses the title itself and drags everything after
+ * it into the wrong section.
+ */
+const JOB_TITLE_SUFFIX_RE =
+  /\b(intern|manager|director|engineer|coordinator|associate|analyst|specialist|officer|assistant|lead|consultant|designer|developer|architect|scientist|researcher|producer|strategist)$/i;
 
 /**
  * Headers for content the schema has no field for. Recognizing these (and
@@ -664,6 +704,7 @@ function sectionOf(line: string): SectionKey | "ignore" | null {
   if (cleaned.length > 40 || /[.!?,|—–]/.test(cleaned)) return null;
   const wordCount = cleaned.split(/\s+/).filter(Boolean).length;
   if (wordCount > 5) return null;
+  if (JOB_TITLE_SUFFIX_RE.test(cleaned)) return null;
 
   if (IGNORED_SECTION_STEMS.some((stem) => cleaned.includes(stem))) {
     return "ignore";
@@ -806,28 +847,48 @@ function peelTrailingLocation(title: string): { heading: string; location: strin
   };
 }
 
+// A labeled tech line ("Skills: Rhino3D, Grasshopper, VRay") that lists
+// tools with commas instead of the "·"/"•" separator `techLine` below
+// looks for. Without this, that line has nowhere to go, so it falls
+// through into `mergeWrappedBullets` and gets glued onto the project's
+// first real bullet as if it were sentence continuation text.
+const LABELED_TECH_RE = /^(?:skills?|tech(?:nologies|nology|stack)?|tools?)\s*:\s*(.+)$/i;
+
 function parseProjects(lines: string[]): ParsedProject[] {
   return chunkEntries(lines, { detectRunOn: true }).flatMap((chunk) => {
     const { title, rest } = peelTitle(chunk);
     if (!title) return [];
     const dated = peelInlineDate(title);
     const linkLine = rest.find((line) => URL_RE.test(line) && !BULLET_RE.test(line));
-    const techLine = rest.find(
+    const dotTechLine = rest.find(
       (line) =>
         line !== linkLine &&
         !BULLET_RE.test(line) &&
         /[·•]/.test(line) &&
         line.length < 220,
     );
+    const labeledTechLine = dotTechLine
+      ? undefined
+      : rest.find(
+          (line) =>
+            line !== linkLine && !BULLET_RE.test(line) && LABELED_TECH_RE.test(line),
+        );
+    const techLine = dotTechLine ?? labeledTechLine;
     const techMatch = dated.text.match(/^(.*?)\s*\((.+)\)\s*$/);
     const name = (techLine ? dated.text : (techMatch?.[1] ?? dated.text)).trim();
-    const tech = techLine
-      ? techLine
+    const tech = dotTechLine
+      ? dotTechLine
           .split(/[·•]/)
           .map((part) => part.trim())
           .filter(Boolean)
           .join(", ")
-      : (techMatch?.[2]?.trim() ?? "");
+      : labeledTechLine
+        ? (labeledTechLine.match(LABELED_TECH_RE)?.[1] ?? "")
+            .split(/[,;]/)
+            .map((part) => part.trim())
+            .filter(Boolean)
+            .join(", ")
+        : (techMatch?.[2]?.trim() ?? "");
     const { start, end, leftover } = peelDates(
       rest.filter((line) => line !== linkLine && line !== techLine),
     );
@@ -969,7 +1030,7 @@ function peelInlineDate(line: string): { text: string; start: string; end: strin
   if (range && range.index !== undefined && range.index > 0) {
     return {
       text: line.slice(0, range.index).trim(),
-      start: (range[2] ?? range[1] ?? "").trim(),
+      start: (range[2] ?? range[4] ?? range[1] ?? "").trim(),
       end: (range[3] ?? "").trim(),
     };
   }
