@@ -235,7 +235,7 @@ function SettingsInner() {
 
       <ConfirmDialog
         open={resetOpen}
-        title="Delete everything?"
+        title="Delete Your Data?"
         message="Every application, message, reminder, and resume in this browser will be removed. This cannot be undone."
         confirmLabel="Delete everything"
         onCancel={() => setResetOpen(false)}
