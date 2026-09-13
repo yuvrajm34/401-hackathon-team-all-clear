@@ -71,10 +71,10 @@ export function CommunicationLog({
             <EmptyState
               title="No messages logged"
               description="Recording a reply with an outcome moves the application to the matching stage automatically."
-              className="border-0 bg-transparent py-6"
+              className="border-0 bg-transparent py-6 shadow-none"
             />
           ) : (
-            <ol className="relative space-y-3 border-l border-line pl-4">
+            <ol className="relative space-y-3 border-l-2 border-brand-soft pl-4">
               {ordered.map((message) => (
                 <li key={message.id} className="relative">
                   <span
@@ -87,7 +87,7 @@ export function CommunicationLog({
                     )}
                   />
 
-                  <div className="rounded-lg border border-line bg-surface-muted/40 p-3">
+                  <div className="rounded-2xl bg-surface-muted/60 p-3">
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                       {message.direction === "inbound" ? (
                         <ArrowDownLeft
@@ -107,7 +107,9 @@ export function CommunicationLog({
                       </span>
                       <span className="text-[11px] text-ink-subtle">
                         {CHANNEL_LABELS[message.channel]} ·{" "}
-                        {formatDate(message.date)}
+                        <span className="font-numeral">
+                          {formatDate(message.date)}
+                        </span>
                       </span>
 
                       {message.outcome !== "none" ? (
@@ -161,16 +163,16 @@ export function CommunicationLog({
 function OutcomeChip({ outcome }: { outcome: CommunicationOutcome }) {
   const tones: Record<CommunicationOutcome, string> = {
     none: "bg-surface-muted text-ink-muted",
-    interview_invite: "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200",
-    offer: "bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200",
-    rejection: "bg-rose-100 text-rose-900 dark:bg-rose-950 dark:text-rose-200",
-    info_request: "bg-sky-100 text-sky-900 dark:bg-sky-950 dark:text-sky-200",
+    interview_invite: "bg-positive-soft text-positive",
+    offer: "bg-positive-soft text-positive",
+    rejection: "bg-negative-soft text-negative",
+    info_request: "bg-accent-soft text-accent-on-soft",
   };
 
   return (
     <span
       className={cn(
-        "rounded-md px-1.5 py-0.5 text-[10px] font-medium",
+        "chip-tone rounded-lg px-1.5 py-0.5 text-[10px] font-medium",
         tones[outcome],
       )}
     >
@@ -265,10 +267,10 @@ function CommunicationForm({
                 onClick={() => setDirection(option.value)}
                 aria-pressed={direction === option.value}
                 className={cn(
-                  "rounded-lg border px-3 py-2 text-xs font-medium transition",
+                  "chip-tone rounded-xl px-3 py-2 text-xs font-medium",
                   direction === option.value
-                    ? "border-brand bg-brand-soft text-brand-ink"
-                    : "border-line bg-surface text-ink-muted hover:border-line-strong",
+                    ? "bg-brand-soft text-brand-on-soft"
+                    : "bg-surface-muted text-ink-muted hover:text-ink",
                 )}
               >
                 {option.label}

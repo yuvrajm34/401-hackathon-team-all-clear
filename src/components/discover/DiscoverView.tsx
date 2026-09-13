@@ -22,9 +22,10 @@ import { toast } from "@/components/ui/Toaster";
 import { cn } from "@/lib/cn";
 import { COMPANIES } from "@/lib/jobs/companies";
 import { JOB_FAMILIES, type JobFamily } from "@/lib/jobs/families";
-import type { JobListing, JobSearchResponse } from "@/lib/jobs/types";
+import { scoreListings } from "@/lib/jobs/scoreListings";
+import type { JobListing } from "@/lib/jobs/types";
+import { useJobSearch } from "@/lib/jobs/useJobSearch";
 import { normalizeUrl } from "@/lib/jobs/url";
-import { buildMatchReport } from "@/lib/keywords";
 import { resumeText } from "@/lib/resume";
 import { selectMasterResume, useAppStore } from "@/store/useAppStore";
 
@@ -89,60 +90,7 @@ function DiscoverViewInner() {
     return params.toString();
   }, [debouncedQuery, company, family, remoteOnly, page]);
 
-  /** Identifies a request, so a retry counts as a new one. */
-  const requestKey = `${retry}:${queryString}`;
-
-  /**
-   * Holds the last request that finished, tagged with the key it answered.
-   * Loading is derived by comparing that key against the current one rather
-   * than tracked in its own state, which keeps the previous page on screen
-   * (dimmed) while the next one loads.
-   */
-  const [result, setResult] = useState<{
-    key: string;
-    data: JobSearchResponse | null;
-    error: string | null;
-  } | null>(null);
-
-  useEffect(() => {
-    const controller = new AbortController();
-
-    const run = async () => {
-      try {
-        const response = await fetch(`/api/jobs?${queryString}`, {
-          signal: controller.signal,
-        });
-
-        if (!response.ok) {
-          const body = (await response.json().catch(() => null)) as
-            | { error?: string }
-            | null;
-          throw new Error(body?.error ?? `Search failed (${response.status})`);
-        }
-
-        const payload = (await response.json()) as JobSearchResponse;
-        setResult({ key: requestKey, data: payload, error: null });
-      } catch (cause) {
-        if (controller.signal.aborted) return;
-        setResult({
-          key: requestKey,
-          data: null,
-          error:
-            cause instanceof Error
-              ? cause.message
-              : "Could not reach the job board.",
-        });
-      }
-    };
-
-    void run();
-
-    return () => controller.abort();
-  }, [queryString, requestKey]);
-
-  const loading = result?.key !== requestKey;
-  const data = result?.data ?? null;
-  const error = result?.error ?? null;
+  const { data, error, loading } = useJobSearch(queryString, retry);
 
   const masterText = useMemo(() => (master ? resumeText(master) : ""), [master]);
 
@@ -158,12 +106,7 @@ function DiscoverViewInner() {
   );
 
   const results = useMemo(() => {
-    const scored = (data?.jobs ?? []).map((listing) => ({
-      listing,
-      score: masterText
-        ? buildMatchReport(listing.description, masterText).score
-        : null,
-    }));
+    const scored = scoreListings(data?.jobs ?? [], masterText);
 
     if (sort === "match") {
       scored.sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
@@ -340,10 +283,10 @@ function DiscoverViewInner() {
               setPage(1);
             }}
             className={cn(
-              "rounded-full border px-2.5 py-1 text-xs font-medium transition",
+              "chip-tone rounded-full px-2.5 py-1 text-xs font-medium",
               remoteOnly
-                ? "border-brand bg-brand-soft text-brand-ink"
-                : "border-line bg-surface text-ink-muted hover:border-line-strong hover:text-ink",
+                ? "bg-brand-soft text-brand-on-soft"
+                : "bg-surface-muted text-ink-muted hover:text-ink",
             )}
           >
             Remote only
@@ -442,7 +385,7 @@ function DiscoverViewInner() {
         <>
           <div
             className={cn(
-              "grid gap-3 sm:grid-cols-2 xl:grid-cols-3",
+              "grid gap-4 sm:grid-cols-2 xl:grid-cols-3",
               loading && "opacity-60 transition-opacity",
             )}
           >
@@ -481,7 +424,7 @@ function DiscoverViewInner() {
                 <ChevronLeft size={14} aria-hidden="true" />
                 Previous
               </Button>
-              <span className="text-xs text-ink-muted">
+              <span className="font-numeral text-xs text-ink-muted">
                 Page {page} of {totalPages.toLocaleString()}
               </span>
               <Button
@@ -518,10 +461,10 @@ function FilterChip({
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        "rounded-full border px-2.5 py-1 text-xs font-medium transition",
+        "chip-tone rounded-full px-2.5 py-1 text-xs font-medium",
         active
-          ? "border-brand bg-brand-soft text-brand-ink"
-          : "border-line bg-surface text-ink-muted hover:border-line-strong hover:text-ink",
+          ? "bg-brand-soft text-brand-on-soft"
+          : "bg-surface-muted text-ink-muted hover:text-ink",
       )}
     >
       {children}
@@ -534,7 +477,7 @@ function ResultsSkeleton() {
     <div
       role="status"
       aria-label="Searching job boards"
-      className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3"
+      className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
     >
       {Array.from({ length: 6 }, (_, index) => (
         <Skeleton key={index} className="h-52" />

@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  CalendarCheck,
-  FileText,
-  MessagesSquare,
-  PartyPopper,
-  Send,
-  Sparkles,
-} from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { useMemo } from "react";
 
 import { QuickAddButton } from "@/components/applications/QuickAddButton";
@@ -105,6 +98,18 @@ function DashboardInner() {
   }
 
   const openConversations = stats.byStage.applied + stats.byStage.interview;
+  const lead =
+    stats.reachedOffer > 0
+      ? "offers"
+      : openConversations > 0
+        ? "play"
+        : stats.submitted > 0
+          ? "submitted"
+          : resumes.length > 0
+            ? "resumes"
+            : "submitted";
+
+  const tailoredCount = resumes.filter((resume) => !resume.isMaster).length;
 
   return (
     <>
@@ -119,54 +124,62 @@ function DashboardInner() {
         actions={<QuickAddButton />}
       />
 
-      <div className="space-y-4">
+      <div className="space-y-6">
         <StatGrid
           stats={[
             {
               label: "Submitted",
               value: String(stats.submitted),
+              count: stats.submitted,
               hint: `${stats.byStage.wishlist} on the wishlist`,
               href: "/applications",
-              icon: <Send size={11} aria-hidden="true" />,
+              rank: lead === "submitted" ? "lead" : "normal",
             },
             {
-              label: "Replied",
-              value: `${stats.responseRate}%`,
-              hint: `${stats.responded} companies got back to you`,
-              icon: <MessagesSquare size={11} aria-hidden="true" />,
+              label: "Still in play",
+              value: String(openConversations),
+              count: openConversations,
+              hint: "Applied or in interview",
+              rank: lead === "play" ? "lead" : "normal",
             },
             {
               label: "Interviews",
               value: String(stats.reachedInterview),
-              hint: `${stats.interviewRate}% of submissions`,
-              tone: "accent",
-              icon: <CalendarCheck size={11} aria-hidden="true" />,
+              count: stats.reachedInterview,
+              hint:
+                stats.submitted > 0
+                  ? `${stats.responded} of ${stats.submitted} heard back`
+                  : "None sent yet",
+              rank: "normal",
             },
             {
               label: "Offers",
-              value: String(stats.reachedOffer),
+              value:
+                stats.reachedOffer > 0
+                  ? String(stats.reachedOffer)
+                  : "None yet",
+              count: stats.reachedOffer > 0 ? stats.reachedOffer : undefined,
               hint:
                 stats.reachedOffer > 0
-                  ? "Go celebrate properly"
-                  : "Keep the pipeline full",
+                  ? "A decision is in front of you"
+                  : undefined,
               tone: stats.reachedOffer > 0 ? "positive" : "default",
-              icon: <PartyPopper size={11} aria-hidden="true" />,
+              rank: lead === "offers" ? "lead" : "quiet",
             },
             {
               label: "Resumes",
-              value: String(resumes.length),
-              hint:
+              value:
                 resumes.length === 0
-                  ? "Create a master resume"
-                  : `${resumes.filter((r) => !r.isMaster).length} tailored`,
+                  ? "None yet"
+                  : `${resumes.length}, ${tailoredCount} tailored`,
+              count: resumes.length > 0 ? resumes.length : undefined,
+              suffix:
+                resumes.length > 0 ? `, ${tailoredCount} tailored` : undefined,
               href: "/resumes",
-              tone: "brand",
-              icon: <FileText size={11} aria-hidden="true" />,
+              rank: lead === "resumes" ? "lead" : "quiet",
             },
           ]}
         />
-
-        <MomentumCard momentum={momentum} />
 
         <div className="grid gap-4 lg:grid-cols-3">
           <div className="lg:col-span-2">
@@ -174,6 +187,8 @@ function DashboardInner() {
           </div>
           <FunnelCard stats={stats} />
         </div>
+
+        <MomentumCard momentum={momentum} />
 
         <ActivityFeed entries={activity} />
       </div>

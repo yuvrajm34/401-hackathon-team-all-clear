@@ -34,7 +34,10 @@ export const MASTER_RESUME_ID = "res_master";
 export const DEFAULT_SETTINGS: Settings = {
   weeklyGoal: 5,
   followUpAfterDays: 10,
-  theme: "system",
+  theme: "dark",
+  atmosphere: "apple",
+  atmosphereImage: "",
+  atmosphereDim: 55,
   ownerName: "",
 };
 
@@ -466,13 +469,22 @@ export const useAppStore = create<AppStore>()(
 
       resetAll: () => {
         const theme = get().settings.theme;
+        const atmosphere = get().settings.atmosphere;
+        const atmosphereImage = get().settings.atmosphereImage;
+        const atmosphereDim = get().settings.atmosphereDim;
         set((state) => {
           const fresh = emptyState();
           state.applications = fresh.applications;
           state.communications = fresh.communications;
           state.reminders = fresh.reminders;
           state.resumes = fresh.resumes;
-          state.settings = { ...fresh.settings, theme };
+          state.settings = {
+            ...fresh.settings,
+            theme,
+            atmosphere,
+            atmosphereImage,
+            atmosphereDim,
+          };
         });
       },
 
@@ -510,6 +522,17 @@ export const useAppStore = create<AppStore>()(
         resumes: state.resumes,
         settings: state.settings,
       }),
+      merge: (persisted, current) => {
+        const incoming = persisted as Partial<AppStore> | undefined;
+        return {
+          ...current,
+          ...incoming,
+          settings: {
+            ...current.settings,
+            ...incoming?.settings,
+          },
+        };
+      },
     },
   ),
 );

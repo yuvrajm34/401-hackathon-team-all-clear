@@ -93,7 +93,7 @@ export function SlideOver({
         type="button"
         aria-label="Close panel"
         onClick={onClose}
-        className="animate-fade absolute inset-0 bg-black/40 backdrop-blur-[2px]"
+        className="animate-fade absolute inset-0 bg-scrim"
       />
       <div
         ref={panelRef}
@@ -101,12 +101,12 @@ export function SlideOver({
         aria-modal="true"
         aria-label={title}
         className={cn(
-          "animate-rise relative flex h-full w-full flex-col bg-surface shadow-2xl",
-          "sm:border-l sm:border-line",
+          "animate-rise relative flex h-full w-full flex-col rounded-t-[1.75rem] bg-surface-raised shadow-raised",
+          "sm:rounded-none sm:rounded-l-[1.75rem]",
           width === "lg" ? "sm:max-w-2xl" : "sm:max-w-lg",
         )}
       >
-        <header className="flex items-start justify-between gap-4 border-b border-line px-4 py-3 sm:px-6 sm:py-4">
+        <header className="flex items-start justify-between gap-4 px-4 py-4 sm:px-6 sm:py-5">
           <div className="min-w-0">
             <h2 className="text-base font-semibold text-ink">{title}</h2>
             {description ? (
@@ -117,7 +117,7 @@ export function SlideOver({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="-mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-ink-muted transition hover:bg-surface-muted hover:text-ink"
+            className="-mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-ink-muted transition hover:bg-surface-muted hover:text-ink"
           >
             <X size={18} aria-hidden="true" />
           </button>
@@ -128,7 +128,7 @@ export function SlideOver({
         </div>
 
         {footer ? (
-          <footer className="border-t border-line bg-surface-muted/60 px-4 py-3 sm:px-6">
+          <footer className="bg-surface-muted/80 px-4 py-3 sm:px-6">
             {footer}
           </footer>
         ) : null}
@@ -173,21 +173,21 @@ export function ConfirmDialog({
         type="button"
         aria-label="Cancel"
         onClick={onCancel}
-        className="animate-fade absolute inset-0 bg-black/50"
+        className="animate-fade absolute inset-0 bg-scrim"
       />
       <div
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="animate-pop relative w-full max-w-sm rounded-xl border border-line bg-surface p-5 shadow-2xl"
+        className="animate-pop relative w-full max-w-sm rounded-[1.75rem] bg-surface-raised p-6 shadow-raised"
       >
-        <h2 className="text-sm font-semibold text-ink">{title}</h2>
+        <h2 className="text-base font-semibold tracking-tight text-ink">{title}</h2>
         <div className="mt-2 text-sm text-ink-muted">{message}</div>
         <div className="mt-5 flex justify-end gap-2">
           <button
             type="button"
             onClick={onCancel}
-            className="h-9 rounded-lg border border-line px-3 text-sm font-medium text-ink transition hover:bg-surface-muted"
+            className="h-9 rounded-xl bg-surface-muted px-3 text-sm font-medium text-ink transition hover:bg-surface"
           >
             Cancel
           </button>

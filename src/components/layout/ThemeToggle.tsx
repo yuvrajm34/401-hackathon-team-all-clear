@@ -24,7 +24,7 @@ export function ThemeToggle({ compact = false }: { compact?: boolean }) {
 
   // This control lives in the app shell, outside any HydrationGate, so it has
   // to fall back to the default until localStorage has been read. Otherwise the
-  // server would render "system" while the client renders the saved preference.
+  // server would render "dark" while the client renders the saved preference.
   const theme = hydrated ? storedTheme : DEFAULT_SETTINGS.theme;
 
   if (compact) {
@@ -39,7 +39,7 @@ export function ThemeToggle({ compact = false }: { compact?: boolean }) {
         type="button"
         onClick={() => updateSettings({ theme: next.value })}
         aria-label={`Theme: ${current.label}. Switch to ${next.label}.`}
-        className="flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-ink-muted transition hover:text-ink"
+        className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-muted text-ink-muted transition hover:bg-brand-soft hover:text-brand-on-soft"
       >
         <Icon size={16} aria-hidden="true" />
       </button>
@@ -50,7 +50,7 @@ export function ThemeToggle({ compact = false }: { compact?: boolean }) {
     <div
       role="radiogroup"
       aria-label="Colour theme"
-      className="flex items-center gap-0.5 rounded-lg border border-line bg-surface-muted p-0.5"
+      className="flex items-center gap-0.5 rounded-full bg-surface-muted p-1"
     >
       {OPTIONS.map((option) => {
         const Icon = option.icon;
@@ -64,9 +64,9 @@ export function ThemeToggle({ compact = false }: { compact?: boolean }) {
             title={option.label}
             onClick={() => updateSettings({ theme: option.value })}
             className={cn(
-              "flex h-7 flex-1 items-center justify-center rounded-md transition",
+              "flex h-7 flex-1 items-center justify-center rounded-full transition",
               active
-                ? "bg-surface text-ink shadow-xs"
+                ? "bg-surface text-ink shadow-card"
                 : "text-ink-subtle hover:text-ink",
             )}
           >

@@ -15,12 +15,11 @@ export function StageBadge({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset",
+        "chip-tone inline-flex items-center rounded-lg px-2 py-0.5 text-[11px] font-medium tracking-wide",
         meta.badge,
         className,
       )}
     >
-      <span className={cn("h-1.5 w-1.5 rounded-full", meta.dot)} aria-hidden="true" />
       {meta.label}
     </span>
   );
@@ -44,8 +43,8 @@ export function StageSelect({
       value={value}
       onChange={(event) => onChange(event.target.value as Stage)}
       className={cn(
-        "cursor-pointer rounded-lg border border-line bg-surface px-2 py-1 text-xs font-medium text-ink transition",
-        "hover:border-line-strong focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/25",
+        "cursor-pointer rounded-xl border-0 bg-surface-muted px-2.5 py-1 text-xs font-medium text-ink transition",
+        "hover:bg-surface-raised focus:outline-none focus:ring-2 focus:ring-brand/30",
         className,
       )}
     >
@@ -86,12 +85,10 @@ export function StageStepper({
               onClick={() => onChange(stage)}
               aria-current={isCurrent ? "step" : undefined}
               className={cn(
-                "rounded-lg px-2.5 py-1.5 text-xs font-medium ring-1 ring-inset transition",
-                isCurrent && meta.badge,
-                !isCurrent && isPast && "bg-surface-muted text-ink-muted ring-line",
-                !isCurrent &&
-                  !isPast &&
-                  "bg-surface text-ink-subtle ring-line hover:bg-surface-muted hover:text-ink",
+                "chip-tone rounded-full px-2.5 py-1.5 text-[13px] font-medium",
+                isCurrent && "bg-brand-soft text-brand-on-soft",
+                !isCurrent && isPast && "text-ink-muted",
+                !isCurrent && !isPast && "text-ink-subtle hover:text-ink",
               )}
             >
               {meta.label}

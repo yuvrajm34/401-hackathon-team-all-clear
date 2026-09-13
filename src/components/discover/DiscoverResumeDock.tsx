@@ -89,16 +89,16 @@ export function DiscoverResumeDock({
         type="button"
         aria-label="Close resume panel"
         onClick={onClose}
-        className="absolute inset-0 bg-black/40"
+        className="absolute inset-0 bg-scrim"
       />
       <div
         ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-label={`Tailor a resume for ${listing.position} at ${listing.company}`}
-        className="relative ml-auto flex h-full w-full flex-col bg-canvas shadow-2xl lg:w-[min(72rem,100%)] lg:border-l lg:border-line"
+        className="relative ml-auto flex h-full w-full flex-col rounded-l-[1.25rem] bg-surface-raised shadow-raised lg:w-[min(72rem,100%)]"
       >
-        <header className="flex shrink-0 items-start justify-between gap-3 border-b border-line bg-surface px-4 py-3 sm:px-5">
+        <header className="flex shrink-0 items-start justify-between gap-3 bg-surface px-4 py-4 sm:px-5">
           <div className="min-w-0">
             <p className="text-xs text-ink-subtle">{listing.company}</p>
             <h2 className="truncate text-base font-semibold text-ink">
@@ -125,7 +125,7 @@ export function DiscoverResumeDock({
             className={cn(
               "rounded-md px-3 py-1.5 text-xs font-medium",
               pane === "posting"
-                ? "bg-brand-soft text-brand-ink"
+                ? "bg-brand-soft text-brand-on-soft"
                 : "text-ink-muted",
             )}
           >
@@ -137,7 +137,7 @@ export function DiscoverResumeDock({
             className={cn(
               "rounded-md px-3 py-1.5 text-xs font-medium",
               pane === "resume"
-                ? "bg-brand-soft text-brand-ink"
+                ? "bg-brand-soft text-brand-on-soft"
                 : "text-ink-muted",
             )}
           >

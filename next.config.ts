@@ -8,6 +8,7 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: ["10.0.0.*"],
   // unpdf and mammoth expect Node; keep them out of the client bundle.
   serverExternalPackages: ["unpdf", "mammoth"],
+  devIndicators: false,
 };
 
 export default nextConfig;

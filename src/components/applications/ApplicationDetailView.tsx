@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 
 import { HydrationGate } from "@/components/layout/HydrationGate";
 import { Button, ButtonLink } from "@/components/ui/Button";
@@ -152,7 +152,7 @@ function ApplicationDetailInner({ id }: { id: string }) {
         All applications
       </Link>
 
-      <header className="brand-wash rounded-xl border border-line p-4 sm:p-5">
+      <header className="rounded-2xl bg-surface p-4 shadow-card sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <h1 className="text-balance text-xl font-semibold tracking-tight text-ink sm:text-2xl">
@@ -169,7 +169,7 @@ function ApplicationDetailInner({ id }: { id: string }) {
                 href={application.url}
                 target="_blank"
                 rel="noreferrer noopener"
-                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-surface px-3 text-sm font-medium text-ink transition hover:bg-surface-muted"
+                className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-surface-muted px-3 text-sm font-medium text-ink transition hover:bg-brand-soft hover:text-brand-on-soft"
               >
                 <ExternalLink size={14} aria-hidden="true" />
                 Posting
@@ -203,7 +203,13 @@ function ApplicationDetailInner({ id }: { id: string }) {
           icon={<CalendarClock size={13} aria-hidden="true" />}
           label={application.stage === "wishlist" ? "Target date" : "Applied"}
           value={
-            application.dateApplied ? formatDate(application.dateApplied) : "Not set"
+            application.dateApplied ? (
+              <span className="font-numeral">
+                {formatDate(application.dateApplied)}
+              </span>
+            ) : (
+              "Not set"
+            )
           }
         />
         <Fact
@@ -322,7 +328,7 @@ function ApplicationDetailInner({ id }: { id: string }) {
                 <>
                   <Link
                     href={`/resumes/${resume.id}`}
-                    className="flex items-center gap-2 rounded-lg border border-line bg-surface-muted/50 px-3 py-2 text-sm font-medium text-ink transition hover:border-brand hover:text-brand"
+                    className="flex items-center gap-2 rounded-xl bg-surface-muted px-3 py-2 text-sm font-medium text-ink transition hover:bg-brand-soft hover:text-brand-on-soft"
                   >
                     <FileText size={15} aria-hidden="true" />
                     <span className="truncate">{resume.name}</span>
@@ -388,17 +394,17 @@ function Fact({
   label,
   value,
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   label: string;
-  value: string;
+  value: ReactNode;
 }) {
   return (
-    <div className="rounded-lg border border-line bg-surface px-3 py-2">
+    <div className="rounded-xl bg-surface-muted px-3 py-2">
       <dt className="flex items-center gap-1 text-[11px] font-medium uppercase tracking-wide text-ink-subtle">
         {icon}
         {label}
       </dt>
-      <dd className="mt-0.5 truncate text-sm text-ink" title={value}>
+      <dd className="mt-0.5 truncate text-sm text-ink">
         {value}
       </dd>
     </div>

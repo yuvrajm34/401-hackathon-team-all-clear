@@ -213,12 +213,20 @@ export type ResumeSectionKey = (typeof RESUME_SECTIONS)[number];
 
 export type ThemePreference = "light" | "dark" | "system";
 
+/** Backdrop skin. Independent of light/dark so contrast tokens stay locked. */
+export type AtmospherePreference = "terminal" | "apple" | "image";
+
 export interface Settings {
   /** Applications the user aims to send per week. */
   weeklyGoal: number;
   /** Days without a reply before an application is flagged as needing a nudge. */
   followUpAfterDays: number;
   theme: ThemePreference;
+  atmosphere: AtmospherePreference;
+  /** URL or inlined data URL used when atmosphere is `image`. */
+  atmosphereImage: string;
+  /** 0–100. How hard the photo is dimmed. The scrim itself never changes. */
+  atmosphereDim: number;
   ownerName: string;
 }
 

@@ -15,6 +15,7 @@ import { QuickAddButton } from "@/components/applications/QuickAddButton";
 import { Toaster } from "@/components/ui/Toaster";
 import { cn } from "@/lib/cn";
 
+import { AtmosphereWell } from "./AtmosphereWell";
 import { ThemeToggle } from "./ThemeToggle";
 
 interface NavItem {
@@ -51,9 +52,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
 
   return (
-    <div className="flex h-dvh overflow-hidden">
+    <div className="relative z-10 flex h-dvh overflow-hidden">
       {/* Desktop sidebar */}
-      <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-line bg-surface md:flex print:hidden">
+      <aside className="app-chrome sticky top-0 hidden h-dvh w-60 shrink-0 flex-col bg-surface shadow-card md:flex print:hidden">
         <div className="px-5 py-5">
           <Wordmark />
         </div>
@@ -69,9 +70,9 @@ export function AppShell({ children }: { children: ReactNode }) {
                     href={item.href}
                     aria-current={active ? "page" : undefined}
                     className={cn(
-                      "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition",
+                      "flex items-center gap-2 rounded-full px-3 py-2 text-sm font-medium transition-colors duration-200 ease-[var(--ease-emphasized)]",
                       active
-                        ? "bg-brand-soft text-brand-ink"
+                        ? "bg-brand-soft text-brand-on-soft"
                         : "text-ink-muted hover:bg-surface-muted hover:text-ink",
                     )}
                   >
@@ -95,7 +96,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         {/* Header: brand on mobile, actions on every size */}
-        <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-3 border-b border-line bg-canvas/85 px-4 backdrop-blur-md sm:px-6 print:hidden">
+        <header className="app-chrome sticky top-0 z-30 flex h-14 items-center justify-between gap-3 bg-surface px-4 shadow-card sm:px-6 print:hidden">
           <div className="md:hidden">
             <Wordmark compact />
           </div>
@@ -114,15 +115,16 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </header>
 
-        <main className="print-root min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-4 pb-24 pt-5 sm:px-6 sm:pb-10">
-          {children}
+        <main className="print-root relative isolate min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-4 pb-24 pt-5 sm:px-6 sm:pb-10">
+          <AtmosphereWell />
+          <div className="relative z-10">{children}</div>
         </main>
       </div>
 
       {/* Mobile bottom tab bar */}
       <nav
         aria-label="Main"
-        className="fixed inset-x-0 bottom-0 z-40 [transform:translateZ(0)] border-t border-line bg-surface/95 backdrop-blur-md will-change-transform md:hidden print:hidden"
+        className="app-chrome fixed inset-x-0 bottom-0 z-40 [transform:translateZ(0)] bg-surface shadow-raised will-change-transform md:hidden print:hidden"
       >
         <ul className="mx-auto flex max-w-md items-stretch justify-between px-2 pb-[env(safe-area-inset-bottom)]">
           {NAV.map((item) => {
@@ -134,7 +136,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   href={item.href}
                   aria-current={active ? "page" : undefined}
                   className={cn(
-                    "flex flex-col items-center gap-0.5 py-2.5 text-[11px] font-medium transition",
+                    "flex flex-col items-center gap-0.5 py-2.5 text-[11px] font-medium transition-colors duration-200",
                     active ? "text-brand" : "text-ink-subtle",
                   )}
                 >
@@ -155,18 +157,12 @@ export function AppShell({ children }: { children: ReactNode }) {
 function Wordmark({ compact = false }: { compact?: boolean }) {
   return (
     <Link href="/" className="inline-flex items-center gap-2">
-      <span
-        aria-hidden="true"
-        className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand text-sm font-bold text-white"
-      >
-        A
-      </span>
       <span className="flex flex-col leading-none">
-        <span className="text-sm font-semibold tracking-tight text-ink">
+        <span className="font-display text-[22px] font-semibold leading-7 text-ink">
           ApplyPath
         </span>
         {compact ? null : (
-          <span className="mt-0.5 text-[11px] text-ink-subtle">
+          <span className="mt-1 text-[11px] text-ink-muted">
             Job application organizer
           </span>
         )}

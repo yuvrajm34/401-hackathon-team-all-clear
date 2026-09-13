@@ -9,26 +9,25 @@ type Variant = "primary" | "secondary" | "ghost" | "danger" | "soft";
 type Size = "sm" | "md" | "lg" | "icon";
 
 const BASE =
-  "inline-flex items-center justify-center gap-2 rounded-lg font-medium transition " +
+  "inline-flex items-center justify-center gap-2 rounded-2xl font-medium tracking-wide " +
+  "transition-[background-color,color,box-shadow,transform] duration-200 ease-[var(--ease-emphasized)] " +
   "disabled:pointer-events-none disabled:opacity-50 " +
   "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand";
 
 const VARIANTS: Record<Variant, string> = {
-  primary:
-    "bg-brand text-white shadow-sm hover:bg-brand-hover active:translate-y-px",
+  primary: "bg-brand text-brand-ink hover:bg-brand-hover",
   secondary:
-    "border border-line bg-surface text-ink hover:border-line-strong hover:bg-surface-muted",
+    "bg-surface-muted text-ink hover:bg-surface-raised hover:shadow-card",
   ghost: "text-ink-muted hover:bg-surface-muted hover:text-ink",
-  danger:
-    "border border-transparent bg-negative/10 text-negative hover:bg-negative/20",
-  soft: "bg-brand-soft text-brand-ink hover:brightness-95",
+  danger: "bg-negative-soft text-negative hover:brightness-105",
+  soft: "bg-brand-soft text-brand-on-soft hover:brightness-105",
 };
 
 const SIZES: Record<Size, string> = {
-  sm: "h-8 px-3 text-sm",
-  md: "h-10 px-4 text-sm",
+  sm: "h-8 px-3 text-[13px]",
+  md: "h-10 px-4 text-[13px]",
   lg: "h-11 px-5 text-base",
-  icon: "h-9 w-9",
+  icon: "h-9 w-9 rounded-full",
 };
 
 interface CommonProps {

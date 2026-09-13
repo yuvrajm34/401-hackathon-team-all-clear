@@ -5,47 +5,66 @@
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 :root {
-  --canvas: #f5f5fa;
-  --canvas-accent: #ece9fb;
-  --surface: #ffffff;
-  --surface-muted: #f2f2f7;
+  --canvas: #fdfbff;
+  --canvas-accent: #edf0ff;
+  --surface: #fdfbff;
+  --surface-muted: #f1f0f4;
   --surface-raised: #ffffff;
-  --border: #e2e2ec;
-  --border-strong: #cfcfdd;
-  --ink: #17171f;
-  --ink-muted: #56566a;
-  --ink-subtle: #8686a0;
-  --brand: #5546e8;
-  --brand-hover: #4437cc;
-  --brand-soft: #eeecfe;
-  --brand-ink: #3a2fb0;
-  --accent: #f0932b;
-  --accent-soft: #fdf1e0;
-  --positive: #10a37f;
-  --negative: #e04f5f;
-  --shadow-card: 0 1px 2px rgb(23 23 31 / 0.05), 0 8px 24px -12px rgb(23 23 31 / 0.12);
+  --border: #e3e2e6;
+  --border-strong: #c6c6d0;
+  --ink: #1b1b1f;
+  --ink-muted: #565f71;
+  --ink-subtle: #74777f;
+  --brand: #0b5fc4;
+  --brand-hover: #00468c;
+  --brand-soft: #d7e3ff;
+  --brand-ink: #ffffff;
+  --brand-on-soft: #001a41;
+  --accent: #565f71;
+  --accent-soft: #dae2f9;
+  --accent-on-soft: #131c2b;
+  --positive: #1e8e3e;
+  --positive-soft: #c4efcd;
+  --negative: #d93025;
+  --negative-soft: #fce8e6;
+  --scrim: rgba(27, 27, 31, 0.36);
+  --shadow-card: 0 1px 2px rgba(27, 27, 31, 0.06),
+    0 8px 24px rgba(27, 27, 31, 0.1);
+  --shadow-raised: 0 12px 32px rgba(27, 27, 31, 0.16);
+  --ease-emphasized: cubic-bezier(0.2, 0, 0, 1);
+  --ease-emphasized-decel: cubic-bezier(0.05, 0.7, 0.1, 1);
+  --ease-emphasized-accel: cubic-bezier(0.3, 0, 0.8, 0.15);
+  --duration-short: 200ms;
+  --duration-medium: 400ms;
+  --duration-long: 600ms;
 }
 
 [data-theme="dark"] {
-  --canvas: #0a0a10;
-  --canvas-accent: #15122a;
-  --surface: #14141d;
-  --surface-muted: #1b1b26;
-  --surface-raised: #1e1e2a;
-  --border: #2a2a38;
-  --border-strong: #3a3a4c;
-  --ink: #f2f2f7;
-  --ink-muted: #a5a5ba;
-  --ink-subtle: #74748c;
-  --brand: #8b7dff;
-  --brand-hover: #a094ff;
-  --brand-soft: #201d3d;
-  --brand-ink: #c7c0ff;
-  --accent: #f6ad55;
-  --accent-soft: #2c2013;
-  --positive: #34d399;
-  --negative: #f87171;
-  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4), 0 10px 30px -14px rgb(0 0 0 / 0.7);
+  --canvas: #111318;
+  --canvas-accent: #1b1b1f;
+  --surface: #1b1b1f;
+  --surface-muted: #2b2930;
+  --surface-raised: #33333a;
+  --border: #45464f;
+  --border-strong: #8e9099;
+  --ink: #e4e2e6;
+  --ink-muted: #c5c6d0;
+  --ink-subtle: #8e9099;
+  --brand: #a9c8ff;
+  --brand-hover: #d7e3ff;
+  --brand-soft: #00468c;
+  --brand-ink: #001a41;
+  --brand-on-soft: #d7e3ff;
+  --accent: #c5c6d0;
+  --accent-soft: #3e4758;
+  --accent-on-soft: #dae2f9;
+  --positive: #81c995;
+  --positive-soft: #0d3b1e;
+  --negative: #f28b82;
+  --negative-soft: #5c1612;
+  --scrim: rgba(0, 0, 0, 0.52);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.36), 0 10px 28px rgba(0, 0, 0, 0.4);
+  --shadow-raised: 0 16px 40px rgba(0, 0, 0, 0.52);
 }
 
 @theme inline {
@@ -63,15 +82,25 @@
   --color-brand-hover: var(--brand-hover);
   --color-brand-soft: var(--brand-soft);
   --color-brand-ink: var(--brand-ink);
+  --color-brand-on-soft: var(--brand-on-soft);
   --color-accent: var(--accent);
   --color-accent-soft: var(--accent-soft);
+  --color-accent-on-soft: var(--accent-on-soft);
   --color-positive: var(--positive);
+  --color-positive-soft: var(--positive-soft);
   --color-negative: var(--negative);
+  --color-negative-soft: var(--negative-soft);
+  --color-scrim: var(--scrim);
 
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
 
   --shadow-card: var(--shadow-card);
+  --shadow-raised: var(--shadow-raised);
+  --ease-emphasized: var(--ease-emphasized);
+  --ease-emphasized-decel: var(--ease-emphasized-decel);
+  --ease-emphasized-accel: var(--ease-emphasized-accel);
 }
 
 @layer base {
@@ -80,8 +109,13 @@
   }
 
   html {
-    color-scheme: light;
+    color-scheme: dark;
+    overflow: hidden;
     -webkit-tap-highlight-color: transparent;
+  }
+
+  html:not([data-theme="dark"]) {
+    color-scheme: light;
   }
 
   [data-theme="dark"] {
@@ -92,7 +126,107 @@
     background-color: var(--canvas);
     color: var(--ink);
     font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.5;
     overscroll-behavior-y: contain;
+  }
+
+  /* Atmosphere never rewrites surface tokens. Chrome and cards stay solid. */
+  .app-chrome {
+    background-color: var(--surface);
+    backdrop-filter: none;
+  }
+
+  .atmosphere-well {
+    position: sticky;
+    top: 0;
+    z-index: 0;
+    height: 0;
+    pointer-events: none;
+  }
+
+  .atmosphere-well-photo,
+  .atmosphere-well-scrim {
+    position: absolute;
+    pointer-events: none;
+  }
+
+  [data-atmosphere="apple"] .atmosphere-well-photo {
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100dvh;
+    background:
+      radial-gradient(
+        90% 65% at 8% 6%,
+        color-mix(in srgb, var(--brand) 42%, transparent),
+        transparent 58%
+      ),
+      radial-gradient(
+        70% 50% at 94% 12%,
+        color-mix(in srgb, var(--accent) 28%, transparent),
+        transparent 52%
+      ),
+      radial-gradient(
+        75% 55% at 80% 96%,
+        color-mix(in srgb, var(--brand) 18%, transparent),
+        transparent 55%
+      );
+  }
+
+  [data-atmosphere="apple"][data-theme="light"] .atmosphere-well-photo {
+    background:
+      radial-gradient(
+        80% 55% at 10% 8%,
+        color-mix(in srgb, var(--brand) 16%, transparent),
+        transparent 58%
+      ),
+      radial-gradient(
+        65% 45% at 94% 12%,
+        color-mix(in srgb, var(--accent) 12%, transparent),
+        transparent 52%
+      ),
+      radial-gradient(
+        70% 50% at 80% 96%,
+        color-mix(in srgb, var(--brand) 10%, transparent),
+        transparent 55%
+      );
+  }
+
+  [data-atmosphere="apple"] .atmosphere-well-scrim {
+    display: none;
+  }
+
+  /* Framed photo in the well only — not a full-bleed wallpaper. */
+  [data-atmosphere="image"] .atmosphere-well-photo {
+    top: 1.25rem;
+    right: 1.25rem;
+    left: 1.25rem;
+    height: min(38vh, 22rem);
+    border-radius: 1.75rem;
+    background-color: var(--canvas-accent);
+    background-image: var(--atmosphere-image);
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    opacity: calc(1 - var(--atmosphere-dim, 0.55));
+    mask-image: linear-gradient(to bottom, #000 40%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, #000 40%, transparent 100%);
+  }
+
+  /* Fixed scrim. Same weight for every photo. Not tied to the dim slider. */
+  [data-atmosphere="image"] .atmosphere-well-scrim {
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100dvh;
+    background: color-mix(in srgb, var(--canvas) 78%, transparent);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    [data-atmosphere="apple"] .atmosphere-well-photo {
+      animation: apple-wash 40s ease-in-out infinite;
+    }
   }
 
   :focus-visible {
@@ -100,7 +234,6 @@
     outline-offset: 2px;
   }
 
-  /* Native controls should follow the theme, including the date picker icon. */
   input,
   textarea,
   select,
@@ -115,7 +248,6 @@
 }
 
 @layer utilities {
-  /* Thin, unobtrusive scrollbars for the Kanban rails and long panels. */
   .scrollbar-slim {
     scrollbar-width: thin;
     scrollbar-color: var(--border-strong) transparent;
@@ -128,7 +260,7 @@
 
   .scrollbar-slim::-webkit-scrollbar-thumb {
     background-color: var(--border-strong);
-    border-radius: 9999px;
+    border-radius: 999px;
   }
 
   .scrollbar-slim::-webkit-scrollbar-track {
@@ -139,27 +271,67 @@
     text-wrap: balance;
   }
 
-  /* Brand wash used behind page headers and the offer celebration. */
-  .brand-wash {
-    background-image: radial-gradient(
-        120% 120% at 0% 0%,
-        var(--brand-soft) 0%,
+  .font-display {
+    font-family: var(--font-sans);
+    letter-spacing: -0.02em;
+  }
+
+  .font-numeral {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .atmosphere-swatch-terminal {
+    background: linear-gradient(160deg, #edf0ff, #fdfbff);
+  }
+
+  [data-theme="dark"] .atmosphere-swatch-terminal {
+    background: linear-gradient(160deg, #2b2930, #111318);
+  }
+
+  .atmosphere-swatch-apple {
+    background:
+      radial-gradient(
+        90% 80% at 15% 20%,
+        color-mix(in srgb, #a9c8ff 70%, transparent),
         transparent 55%
       ),
-      radial-gradient(100% 100% at 100% 0%, var(--accent-soft) 0%, transparent 45%);
+      radial-gradient(
+        70% 70% at 90% 30%,
+        color-mix(in srgb, #dae2f9 45%, transparent),
+        transparent 50%
+      ),
+      #111318;
+  }
+
+  .atmosphere-swatch-image {
+    background: linear-gradient(135deg, #0b5fc4 0%, #565f71 55%, #111318 100%);
+  }
+
+  .brand-wash {
+    background-image: none;
+  }
+
+  .chip-tone {
+    transition:
+      background-color var(--duration-short) var(--ease-emphasized),
+      color var(--duration-short) var(--ease-emphasized);
   }
 
   @media (prefers-reduced-motion: no-preference) {
     .animate-rise {
-      animation: rise 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+      animation: rise var(--duration-medium) var(--ease-emphasized-decel) both;
     }
 
     .animate-pop {
-      animation: pop 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+      animation: pop var(--duration-medium) var(--ease-emphasized-decel) both;
     }
 
     .animate-fade {
-      animation: fade 0.18s ease-out both;
+      animation: fade var(--duration-short) var(--ease-emphasized) both;
+    }
+
+    .animate-lead-flash {
+      animation: lead-flash var(--duration-medium) var(--ease-emphasized);
     }
   }
 }
@@ -167,7 +339,7 @@
 @keyframes rise {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateX(24px);
   }
   to {
     opacity: 1;
@@ -178,10 +350,7 @@
 @keyframes pop {
   0% {
     opacity: 0;
-    transform: scale(0.94);
-  }
-  60% {
-    transform: scale(1.02);
+    transform: scale(0.92);
   }
   100% {
     opacity: 1;
@@ -198,10 +367,26 @@
   }
 }
 
-/* ---------------------------------------------------------------------------
-   Print: only the resume sheet survives. `print:hidden` handles app chrome;
-   these rules neutralise the layout so the sheet starts at the page margin.
---------------------------------------------------------------------------- */
+@keyframes lead-flash {
+  0%,
+  100% {
+    background-color: var(--brand-soft);
+  }
+  45% {
+    filter: brightness(1.08);
+  }
+}
+
+@keyframes apple-wash {
+  0%,
+  100% {
+    transform: scale(1) translate(0, 0);
+  }
+  50% {
+    transform: scale(1.08) translate(-2.5%, 1.5%);
+  }
+}
+
 @media print {
   @page {
     size: letter;
@@ -214,8 +399,12 @@
     color: #000000 !important;
   }
 
+  body::before,
+  .atmosphere-well {
+    display: none !important;
+  }
+
   body {
-    /* Force light tokens so a dark-mode user still prints a white resume. */
     --surface: #ffffff;
     --canvas: #ffffff;
     --ink: #000000;
@@ -243,14 +432,10 @@
     padding: 0 !important;
   }
 
-  /* The editor is a 2-column grid on desktop. If that grid stays on for
-     print, the sheet is squeezed into half a page and headings wrap. */
   .print-resume-grid {
     display: block !important;
   }
 
-  /* Explicit opt in/out beats whatever responsive utility is on the element,
-     so the resume sheet prints even when the editor tab is the active one. */
   [data-print="hide"] {
     display: none !important;
   }

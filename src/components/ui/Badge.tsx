@@ -12,17 +12,17 @@ export function Badge({
   tone?: "neutral" | "brand" | "accent" | "positive" | "negative";
 }) {
   const tones = {
-    neutral: "bg-surface-muted text-ink-muted ring-line",
-    brand: "bg-brand-soft text-brand-ink ring-brand/20",
-    accent: "bg-accent-soft text-accent ring-accent/30",
-    positive: "bg-positive/10 text-positive ring-positive/25",
-    negative: "bg-negative/10 text-negative ring-negative/25",
+    neutral: "bg-surface-muted text-ink-muted",
+    brand: "bg-brand-soft text-brand-on-soft",
+    accent: "bg-accent-soft text-accent-on-soft",
+    positive: "bg-positive-soft text-positive",
+    negative: "bg-negative-soft text-negative",
   } as const;
 
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset",
+        "chip-tone inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium tracking-wide",
         tones[tone],
         className,
       )}

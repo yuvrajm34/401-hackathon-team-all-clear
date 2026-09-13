@@ -178,7 +178,7 @@ export function MatchPanel({
                           ? `Matched through "${hit.matchedVia}"`
                           : undefined
                       }
-                      className="rounded-md bg-positive/10 px-1.5 py-0.5 text-[11px] text-positive"
+                      className="chip-tone rounded-lg bg-positive-soft px-1.5 py-0.5 text-[11px] text-positive"
                     >
                       {hit.keyword}
                     </li>
@@ -208,7 +208,7 @@ export function MatchPanel({
               </div>
 
               {suggestError ? (
-                <p className="mt-2 rounded-lg bg-negative/10 px-3 py-2 text-xs text-negative">
+                <p className="mt-2 text-xs text-negative">
                   {suggestError}
                 </p>
               ) : null}
@@ -261,7 +261,7 @@ export function MatchPanel({
 function Hint({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex items-start gap-2.5 rounded-lg bg-surface-muted/60 p-3">
-      <Target size={16} className="mt-0.5 shrink-0 text-brand" aria-hidden="true" />
+      <Target size={16} className="mt-0.5 shrink-0 text-ink-muted" aria-hidden="true" />
       <p className="text-xs leading-relaxed text-ink-muted">{children}</p>
     </div>
   );

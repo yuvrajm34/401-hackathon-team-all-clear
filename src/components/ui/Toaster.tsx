@@ -48,8 +48,8 @@ const ICONS = {
 
 const TONES: Record<ToastTone, string> = {
   success: "text-positive",
-  info: "text-brand",
-  warning: "text-accent",
+  info: "text-ink",
+  warning: "text-negative",
 };
 
 export function Toaster() {
@@ -71,7 +71,7 @@ export function Toaster() {
             key={item.id}
             type="button"
             onClick={() => dismiss(item.id)}
-            className="animate-pop pointer-events-auto flex max-w-sm items-center gap-2 rounded-lg border border-line bg-surface-raised px-3.5 py-2.5 text-sm text-ink shadow-card"
+            className="animate-pop pointer-events-auto flex max-w-sm items-center gap-2 rounded-2xl bg-surface-raised px-3.5 py-2.5 text-sm text-ink shadow-raised"
           >
             <Icon size={16} className={cn("shrink-0", TONES[item.tone])} aria-hidden="true" />
             <span className="text-left">{item.message}</span>

@@ -281,10 +281,10 @@ function FilterChip({
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        "rounded-full border px-2.5 py-1 text-xs font-medium transition",
+        "chip-tone rounded-full px-2.5 py-1 text-xs font-medium",
         active
-          ? "border-brand bg-brand-soft text-brand-ink"
-          : "border-line bg-surface text-ink-muted hover:border-line-strong hover:text-ink",
+          ? "bg-brand-soft text-brand-on-soft"
+          : "bg-surface-muted text-ink-muted hover:text-ink",
       )}
     >
       {children}

@@ -68,7 +68,7 @@ export function SkillsEditor({
               />
 
               {changed ? (
-                <span className="shrink-0 rounded bg-brand-soft px-1.5 py-0.5 text-[10px] font-medium text-brand-ink">
+                <span className="shrink-0 text-[10px] text-ink-muted">
                   edited
                 </span>
               ) : null}

@@ -262,6 +262,15 @@ export function scoreLabel(score: number): {
   tone: "strong" | "fair" | "weak";
 } {
   if (score >= 70) return { label: "Strong match", tone: "strong" };
-  if (score >= 45) return { label: "Partial match", tone: "fair" };
-  return { label: "Needs work", tone: "weak" };
+  if (score <= 35) return { label: "Needs work", tone: "weak" };
+  return { label: "Partial match", tone: "fair" };
+}
+
+/** Signal color for a match score. Mid band stays grey. */
+export function matchSignal(
+  score: number,
+): "positive" | "negative" | "neutral" {
+  if (score >= 70) return "positive";
+  if (score <= 35) return "negative";
+  return "neutral";
 }

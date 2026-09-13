@@ -83,7 +83,7 @@ export function ReminderList({
               return (
                 <li
                   key={reminder.id}
-                  className="flex items-center gap-2 rounded-lg border border-line bg-surface-muted/40 px-2.5 py-2"
+                  className="flex items-center gap-2 rounded-xl bg-surface-muted px-2.5 py-2"
                 >
                   <button
                     type="button"
@@ -95,10 +95,10 @@ export function ReminderList({
                         : `Mark "${reminder.title}" as done`
                     }
                     className={cn(
-                      "flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded border transition",
+                      "flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-full transition",
                       reminder.done
-                        ? "border-positive bg-positive text-white"
-                        : "border-line-strong hover:border-brand",
+                        ? "bg-positive text-white"
+                        : "bg-surface hover:bg-brand-soft",
                     )}
                   >
                     {reminder.done ? (

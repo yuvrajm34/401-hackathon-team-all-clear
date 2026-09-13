@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
 import { formatDate } from "@/lib/dates";
 import type { JobListing } from "@/lib/jobs/types";
-import { scoreLabel } from "@/lib/keywords";
+import { matchSignal, scoreLabel } from "@/lib/keywords";
 import { WORK_MODE_LABELS } from "@/lib/stages";
 
 export function JobCard({
@@ -41,15 +41,22 @@ export function JobCard({
   onOpenResume: () => void;
 }) {
   return (
-    <article className="flex flex-col rounded-xl border border-line bg-surface p-4 shadow-card transition hover:border-line-strong">
+    <article className="flex flex-col rounded-[1.75rem] bg-surface p-4 shadow-card transition-[box-shadow] duration-200 ease-[var(--ease-emphasized)] hover:shadow-raised">
       <button
         type="button"
         onClick={onOpen}
         className="w-full rounded-sm text-left"
       >
         <div className="flex items-start justify-between gap-3">
-          <h3 className="text-sm font-semibold leading-snug text-ink">
-            {listing.position}
+          <h3 className="flex min-w-0 items-start gap-1.5 text-sm font-semibold leading-snug text-ink">
+            <span>{listing.position}</span>
+            {tracked ? (
+              <Check
+                size={14}
+                aria-label="In your pipeline"
+                className="mt-0.5 shrink-0 text-ink"
+              />
+            ) : null}
           </h3>
           <span className="flex shrink-0 items-center gap-2">
             {score !== null ? <MatchPill score={score} /> : null}
@@ -76,14 +83,15 @@ export function JobCard({
 
         <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
           {listing.workMode !== "unknown" ? (
-            <Badge tone={listing.workMode === "remote" ? "positive" : "neutral"}>
+            <Badge tone="neutral">
               {WORK_MODE_LABELS[listing.workMode]}
             </Badge>
           ) : null}
           {listing.department ? <Badge>{listing.department}</Badge> : null}
           {listing.postedAt ? (
             <span className="text-[11px] text-ink-subtle">
-              Posted {formatDate(listing.postedAt)}
+              Posted{" "}
+              <span className="font-numeral">{formatDate(listing.postedAt)}</span>
             </span>
           ) : null}
         </div>
@@ -94,18 +102,19 @@ export function JobCard({
         onClick={(event) => event.stopPropagation()}
       >
         {tracked ? (
-          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-positive">
-            <Check size={14} aria-hidden="true" />
-            In your pipeline
-          </span>
+          <span className="text-xs text-ink-muted">In pipeline</span>
         ) : (
-          <Button size="sm" onClick={onAdd}>
+          <Button size="sm" variant="secondary" onClick={onAdd}>
             <Plus size={14} aria-hidden="true" />
             Add to wishlist
           </Button>
         )}
 
-        <Button size="sm" variant="secondary" onClick={onOpenResume}>
+        <Button
+          size="sm"
+          variant={hasMaster ? "primary" : "secondary"}
+          onClick={onOpenResume}
+        >
           <FileText size={14} aria-hidden="true" />
           {!hasMaster
             ? "Start a master resume"
@@ -129,28 +138,21 @@ export function JobCard({
 }
 
 function MatchPill({ score }: { score: number }) {
-  const { tone, label } = scoreLabel(score);
+  const { label } = scoreLabel(score);
+  const signal = matchSignal(score);
 
   return (
     <span
       title={`${label} against your master resume`}
       className={cn(
-        "inline-flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset",
-        tone === "strong" && "bg-positive/10 text-positive ring-positive/25",
-        tone === "fair" && "bg-accent-soft text-accent ring-accent/30",
-        tone === "weak" && "bg-surface-muted text-ink-muted ring-line",
+        "chip-tone font-numeral shrink-0 rounded-lg px-2 py-0.5 text-[13px] font-medium",
+        signal === "positive" && "bg-positive-soft text-positive",
+        signal === "negative" && "bg-negative-soft text-negative",
+        signal === "neutral" && "bg-accent-soft text-accent-on-soft",
       )}
     >
-      <span
-        aria-hidden="true"
-        className={cn(
-          "h-1.5 w-1.5 rounded-full",
-          tone === "strong" && "bg-positive",
-          tone === "fair" && "bg-accent",
-          tone === "weak" && "bg-ink-subtle",
-        )}
-      />
-      {score}% match
+      {score}
+      <span className="ml-1 text-[11px] font-medium">match</span>
     </span>
   );
 }

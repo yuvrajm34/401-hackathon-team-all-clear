@@ -14,7 +14,7 @@ export function Panel({
   return (
     <Tag
       className={cn(
-        "rounded-xl border border-line bg-surface shadow-card",
+        "rounded-[1.75rem] bg-surface shadow-card",
         className,
       )}
     >
@@ -37,14 +37,14 @@ export function PanelHeader({
   return (
     <div
       className={cn(
-        "flex flex-wrap items-start justify-between gap-3 border-b border-line px-4 py-3 sm:px-5",
+        "flex flex-wrap items-start justify-between gap-3 px-5 pt-5 pb-1 sm:px-6",
         className,
       )}
     >
       <div className="min-w-0">
-        <h2 className="text-sm font-semibold text-ink">{title}</h2>
+        <h2 className="text-base font-semibold tracking-tight text-ink">{title}</h2>
         {description ? (
-          <p className="mt-0.5 text-xs text-ink-muted">{description}</p>
+          <p className="mt-0.5 text-xs leading-4 text-ink-muted">{description}</p>
         ) : null}
       </div>
       {action ? <div className="flex shrink-0 items-center gap-2">{action}</div> : null}
@@ -59,5 +59,5 @@ export function PanelBody({
   className?: string;
   children: ReactNode;
 }) {
-  return <div className={cn("px-4 py-4 sm:px-5", className)}>{children}</div>;
+  return <div className={cn("px-5 py-5 sm:px-6", className)}>{children}</div>;
 }

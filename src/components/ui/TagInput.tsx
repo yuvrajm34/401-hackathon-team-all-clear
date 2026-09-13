@@ -61,18 +61,18 @@ export function TagInput({
         </label>
       ) : null}
 
-      <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-line bg-surface px-2 py-1.5 transition focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/25">
+      <div className="flex flex-wrap items-center gap-1.5 rounded-xl bg-surface-muted px-2 py-1.5 transition focus-within:bg-surface focus-within:ring-2 focus-within:ring-brand/30">
         {values.map((value) => (
           <span
             key={value}
-            className="inline-flex items-center gap-1 rounded-md bg-brand-soft px-2 py-0.5 text-xs font-medium text-brand-ink"
+            className="chip-tone inline-flex items-center gap-1 rounded-lg bg-accent-soft px-2 py-0.5 text-xs text-accent-on-soft"
           >
             {value}
             <button
               type="button"
               onClick={() => onChange(values.filter((v) => v !== value))}
               aria-label={`Remove ${value}`}
-              className="rounded-sm text-brand-ink/70 transition hover:text-brand-ink"
+              className="rounded-sm text-accent-on-soft/70 transition hover:text-accent-on-soft"
             >
               <X size={12} aria-hidden="true" />
             </button>
@@ -97,7 +97,7 @@ export function TagInput({
               key={suggestion}
               type="button"
               onClick={() => commit(suggestion)}
-              className="rounded-md border border-dashed border-line-strong px-1.5 py-0.5 text-[11px] text-ink-muted transition hover:border-brand hover:text-brand"
+              className="rounded-lg bg-surface-muted px-1.5 py-0.5 text-[11px] text-ink-muted transition hover:bg-brand-soft hover:text-brand-on-soft"
             >
               + {suggestion}
             </button>

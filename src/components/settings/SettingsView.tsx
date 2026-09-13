@@ -5,6 +5,7 @@ import { useRef, useState } from "react";
 
 import { HydrationGate } from "@/components/layout/HydrationGate";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { AtmospherePicker } from "@/components/layout/AtmospherePicker";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { Button } from "@/components/ui/Button";
 import { Field, LabeledInput } from "@/components/ui/Field";
@@ -103,6 +104,13 @@ function SettingsInner() {
             <Field label="Theme">
               <ThemeToggle />
             </Field>
+
+            <Field
+              label="Atmosphere"
+              hint="Backdrop only — type, badges, and match colours stay the same."
+            >
+              <AtmospherePicker />
+            </Field>
           </PanelBody>
         </Panel>
 
@@ -156,7 +164,7 @@ function SettingsInner() {
               ].map((item) => (
                 <div
                   key={item.label}
-                  className="rounded-lg border border-line bg-surface-muted/40 px-3 py-2"
+                  className="rounded-xl bg-surface-muted px-3 py-2"
                 >
                   <dt className="text-[11px] uppercase tracking-wide text-ink-subtle">
                     {item.label}

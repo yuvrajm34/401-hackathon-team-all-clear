@@ -42,7 +42,8 @@ export function ActivityFeed({ entries }: { entries: ActivityEntry[] }) {
                     {entry.title}
                   </Link>
                   <p className="truncate text-[11px] text-ink-subtle">
-                    {entry.detail} · {formatDate(entry.date)}
+                    {entry.detail} ·{" "}
+                    <span className="font-numeral">{formatDate(entry.date)}</span>
                   </p>
                 </div>
               </li>

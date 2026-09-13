@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 
 import { AppShell } from "@/components/layout/AppShell";
 import { ThemeSync } from "@/components/layout/ThemeSync";
@@ -7,14 +7,10 @@ import { STORAGE_KEY } from "@/store/useAppStore";
 
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const jakarta = Plus_Jakarta_Sans({
+  weight: ["400", "500", "600", "700"],
   subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  variable: "--font-jakarta",
 });
 
 export const metadata: Metadata = {
@@ -31,8 +27,8 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f5f5fa" },
-    { media: "(prefers-color-scheme: dark)", color: "#0a0a10" },
+    { media: "(prefers-color-scheme: light)", color: "#fdfbff" },
+    { media: "(prefers-color-scheme: dark)", color: "#111318" },
   ],
 };
 
@@ -44,16 +40,32 @@ const themeBootstrap = `
 (function () {
   try {
     var stored = localStorage.getItem(${JSON.stringify(STORAGE_KEY)});
-    var preference = "system";
+    var preference = "dark";
+    var atmosphere = "apple";
+    var settings = null;
     if (stored) {
       var parsed = JSON.parse(stored);
-      preference = (parsed && parsed.state && parsed.state.settings && parsed.state.settings.theme) || "system";
+      settings = parsed && parsed.state && parsed.state.settings;
+      preference = (settings && settings.theme) || "dark";
+      atmosphere = (settings && settings.atmosphere) || "apple";
     }
+    if (atmosphere !== "terminal" && atmosphere !== "apple" && atmosphere !== "image") atmosphere = "apple";
     var dark = preference === "dark" ||
       (preference === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
     document.documentElement.dataset.theme = dark ? "dark" : "light";
+    document.documentElement.dataset.atmosphere = atmosphere;
+    var dim = settings && settings.atmosphereDim;
+    dim = typeof dim === "number" ? dim : 55;
+    if (dim < 0) dim = 0;
+    if (dim > 100) dim = 100;
+    document.documentElement.style.setProperty("--atmosphere-dim", String(dim / 100));
+    var image = settings && settings.atmosphereImage;
+    if (atmosphere === "image" && image) {
+      document.documentElement.style.setProperty("--atmosphere-image", "url(" + JSON.stringify(image) + ")");
+    }
   } catch (error) {
-    document.documentElement.dataset.theme = "light";
+    document.documentElement.dataset.theme = "dark";
+    document.documentElement.dataset.atmosphere = "apple";
   }
 })();
 `;
@@ -63,7 +75,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${jakarta.variable} h-full antialiased`}
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />

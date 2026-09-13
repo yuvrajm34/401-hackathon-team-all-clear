@@ -259,7 +259,10 @@ export function buildDemoSnapshot(): AppSnapshot {
     settings: {
       weeklyGoal: 5,
       followUpAfterDays: 10,
-      theme: "system",
+      theme: "dark",
+      atmosphere: "apple",
+      atmosphereImage: "",
+      atmosphereDim: 55,
       ownerName: "Alex Rivera",
     },
   };

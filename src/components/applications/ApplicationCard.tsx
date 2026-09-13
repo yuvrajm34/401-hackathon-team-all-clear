@@ -19,6 +19,8 @@ import { formatRelativeDay, formatShortDate, todayIso } from "@/lib/dates";
 import { STAGE_META, WORK_MODE_LABELS } from "@/lib/stages";
 import { STAGES, type Application, type Stage } from "@/lib/types";
 
+import { StageBadge } from "./StageBadge";
+
 export interface ApplicationCardMeta {
   /** Number of logged messages. */
   messages: number;
@@ -104,18 +106,17 @@ function CardShell({
   dragging?: boolean;
   dragHandle?: ReactNode;
 }) {
-  const stageMeta = STAGE_META[application.stage];
-
   return (
     <article
       ref={nodeRef}
       style={style}
       className={cn(
-        "group relative rounded-lg border border-line border-l-2 bg-surface p-3 shadow-xs transition",
-        stageMeta.rail,
-        dragging
-          ? "rotate-1 scale-[1.02] cursor-grabbing shadow-card"
-          : "hover:border-line-strong hover:shadow-card",
+        "group relative rounded-[1.75rem] bg-surface p-3 shadow-card transition-[box-shadow,transform] duration-200 ease-[var(--ease-emphasized)]",
+        dragging && dragHandle
+          ? "cursor-grabbing opacity-0"
+          : dragging
+            ? "cursor-grabbing shadow-raised"
+            : "hover:shadow-raised",
       )}
     >
       <div className="flex items-start justify-between gap-2">
@@ -132,6 +133,9 @@ function CardShell({
           <p className="mt-0.5 line-clamp-2 text-xs text-ink-muted">
             {application.position}
           </p>
+          <div className="mt-1.5">
+            <StageBadge stage={application.stage} />
+          </div>
         </Link>
 
         <div className="flex shrink-0 items-center">
@@ -186,13 +190,13 @@ function CardShell({
       {application.tags.length > 0 || meta.resumeName || meta.followUpDue ? (
         <div className="mt-2 flex flex-wrap items-center gap-1">
           {meta.followUpDue ? (
-            <span className="inline-flex items-center gap-1 rounded-md bg-accent-soft px-1.5 py-0.5 text-[10px] font-medium text-accent">
+            <span className="chip-tone inline-flex items-center gap-1 rounded-lg bg-negative-soft px-1.5 py-0.5 text-[10px] font-medium text-negative">
               Follow up {formatRelativeDay(application.followUpDate || todayIso())}
             </span>
           ) : null}
 
           {meta.resumeName ? (
-            <span className="inline-flex max-w-full items-center gap-1 rounded-md bg-surface-muted px-1.5 py-0.5 text-[10px] text-ink-muted">
+            <span className="inline-flex max-w-full items-center gap-1 text-[10px] text-ink-muted">
               <FileText size={10} aria-hidden="true" />
               <span className="truncate">{meta.resumeName}</span>
             </span>
@@ -201,7 +205,7 @@ function CardShell({
           {application.tags.slice(0, 2).map((tag) => (
             <span
               key={tag}
-              className="rounded-md bg-brand-soft px-1.5 py-0.5 text-[10px] font-medium text-brand-ink"
+              className="chip-tone rounded-lg bg-accent-soft px-1.5 py-0.5 text-[10px] text-accent-on-soft"
             >
               {tag}
             </span>
@@ -220,9 +224,9 @@ function CardShell({
 function PriorityDot({ priority }: { priority: 1 | 2 | 3 }) {
   const labels = { 1: "Low priority", 2: "Medium priority", 3: "High priority" };
   const colors = {
-    1: "bg-ink-subtle/40",
-    2: "bg-brand/50",
-    3: "bg-accent",
+    1: "bg-ink-subtle",
+    2: "bg-accent",
+    3: "bg-brand",
   } as const;
 
   return (
@@ -289,7 +293,7 @@ function MoveMenu({
       {open ? (
         <div
           role="menu"
-          className="animate-pop absolute right-0 top-7 z-50 w-40 overflow-hidden rounded-lg border border-line bg-surface-raised p-1 shadow-card"
+          className="animate-pop absolute right-0 top-7 z-50 w-40 overflow-hidden rounded-2xl bg-surface-raised p-1 shadow-raised"
         >
           {STAGES.filter((stage) => stage !== currentStage).map((stage) => (
             <button

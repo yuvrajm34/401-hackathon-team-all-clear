@@ -32,7 +32,7 @@ export function FollowUpQueue({
       />
       <PanelBody className="space-y-3">
         {total === 0 ? (
-          <p className="rounded-lg bg-positive/10 px-3 py-2.5 text-xs text-positive">
+          <p className="text-xs text-positive">
             All clear. Every application has either had a reply or is still
             inside its waiting window.
           </p>
@@ -49,13 +49,13 @@ export function FollowUpQueue({
                 <li key={application.id}>
                   <Link
                     href={`/applications/${application.id}`}
-                    className="flex items-center gap-2 rounded-lg border border-line bg-surface-muted/40 px-2.5 py-2 transition hover:border-accent/60"
+                    className="flex items-center gap-2 rounded-xl bg-negative-soft/70 px-2.5 py-2 transition hover:bg-negative-soft"
                   >
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-xs font-medium text-ink">
                         {application.company}
                       </p>
-                      <p className="truncate text-[11px] text-ink-subtle">
+                      <p className="truncate text-[11px] text-negative">
                         {reason === "follow-up-due"
                           ? `Follow-up planned ${formatRelativeDay(
                               application.followUpDate,
@@ -85,13 +85,13 @@ export function FollowUpQueue({
               {reminders.map(({ reminder, application, overdue }) => (
                 <li
                   key={reminder.id}
-                  className="flex items-center gap-2 rounded-lg border border-line bg-surface-muted/40 px-2.5 py-2"
+                  className="flex items-center gap-2 rounded-xl bg-surface-muted px-2.5 py-2"
                 >
                   <button
                     type="button"
                     onClick={() => toggleReminder(reminder.id)}
                     aria-label={`Mark "${reminder.title}" as done`}
-                    className="flex h-4 w-4 shrink-0 items-center justify-center rounded border border-line-strong transition hover:border-positive hover:bg-positive/10"
+                    className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-surface transition hover:bg-positive-soft hover:text-positive"
                   >
                     <Check
                       size={10}

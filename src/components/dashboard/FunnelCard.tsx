@@ -1,64 +1,79 @@
 "use client";
 
+import { motion, useReducedMotion } from "framer-motion";
+
 import { Panel, PanelBody, PanelHeader } from "@/components/ui/Panel";
-import { cn } from "@/lib/cn";
-import { STAGE_META } from "@/lib/stages";
 import type { PipelineStats } from "@/lib/stats";
 
 export function FunnelCard({ stats }: { stats: PipelineStats }) {
+  const reduceMotion = useReducedMotion();
+  const early = stats.submitted < 8;
+  const line = stats.funnel
+    .map((step) => `${step.count} ${step.label.toLowerCase()}`)
+    .join(" · ");
+
   return (
     <Panel>
       <PanelHeader
-        title="Conversion funnel"
+        title="Conversion"
         description={
           stats.submitted === 0
-            ? "Send your first application to start the funnel."
-            : `Of ${stats.submitted} submitted applications.`
+            ? "Send your first application to start a count."
+            : early
+              ? "Rates wait until you have more sent."
+              : `Of ${stats.submitted} submitted applications.`
         }
       />
       <PanelBody className="space-y-3">
-        {stats.funnel.map((step) => {
-          const meta = STAGE_META[step.stage];
-          return (
-            <div key={step.stage}>
-              <div className="flex items-baseline justify-between gap-2">
-                <span className="text-xs font-medium text-ink">{step.label}</span>
-                <span className="text-xs tabular-nums text-ink-muted">
-                  {step.count}
-                  <span className="ml-1 text-ink-subtle">({step.rate}%)</span>
-                </span>
-              </div>
-              <div className="mt-1 h-2 overflow-hidden rounded-full bg-surface-muted">
-                <div
-                  role="presentation"
-                  style={{ width: `${step.rate}%` }}
-                  className={cn(
-                    "h-full rounded-full transition-[width] duration-700",
-                    meta.bar,
-                  )}
-                />
-              </div>
-            </div>
-          );
-        })}
+        {stats.submitted === 0 ? (
+          <p className="text-[13px] text-ink-muted">Nothing submitted yet.</p>
+        ) : (
+          <>
+            <p className="font-numeral text-[13px] leading-relaxed text-ink">
+              {line}
+            </p>
+            <ol className="space-y-2">
+              {stats.funnel.map((step) => {
+                const width =
+                  stats.submitted === 0
+                    ? 0
+                    : Math.round((step.count / stats.submitted) * 100);
 
-        <dl className="grid grid-cols-2 gap-2 border-t border-line pt-3 text-xs">
+                return (
+                  <li key={step.stage}>
+                    <div className="mb-1 flex items-baseline justify-between gap-3 text-[11px]">
+                      <span className="text-ink-muted">{step.label}</span>
+                      <span className="font-numeral text-ink">{step.count}</span>
+                    </div>
+                    <div className="h-3 overflow-hidden rounded-full bg-surface-muted">
+                      <motion.div
+                        className="h-full rounded-full bg-brand"
+                        initial={reduceMotion ? false : { width: 0 }}
+                        animate={{ width: `${width}%` }}
+                        transition={{
+                          duration: 0.6,
+                          ease: [0.05, 0.7, 0.1, 1],
+                        }}
+                      />
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
+          </>
+        )}
+
+        <dl className="grid grid-cols-2 gap-4 border-t border-line pt-3 text-[13px]">
           <div>
-            <dt className="text-ink-subtle">Heard back from</dt>
-            <dd className="mt-0.5 font-semibold tabular-nums text-ink">
+            <dt className="text-[11px] text-ink-muted">Heard back from</dt>
+            <dd className="font-numeral mt-1 text-ink">
               {stats.responded} of {stats.submitted}
-              <span className="ml-1 font-normal text-ink-muted">
-                ({stats.responseRate}%)
-              </span>
             </dd>
           </div>
           <div>
-            <dt className="text-ink-subtle">Still open</dt>
-            <dd className="mt-0.5 font-semibold tabular-nums text-ink">
+            <dt className="text-[11px] text-ink-muted">Still open</dt>
+            <dd className="font-numeral mt-1 text-ink">
               {stats.byStage.applied + stats.byStage.interview}
-              <span className="ml-1 font-normal text-ink-muted">
-                awaiting a decision
-              </span>
             </dd>
           </div>
         </dl>

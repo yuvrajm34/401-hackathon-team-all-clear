@@ -19,11 +19,12 @@ import { Button, ButtonLink } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Panel, PanelBody, PanelHeader } from "@/components/ui/Panel";
 import { ProgressRing } from "@/components/ui/ProgressRing";
+import { Sparkline } from "@/components/ui/Sparkline";
 import { toast } from "@/components/ui/Toaster";
 import { cn } from "@/lib/cn";
 import { formatDate } from "@/lib/dates";
 import { downloadTextFile, slugify } from "@/lib/download";
-import { buildMatchReport } from "@/lib/keywords";
+import { buildMatchReport, matchSignal } from "@/lib/keywords";
 import { resumeToLatex } from "@/lib/latex";
 import { diffAgainstMaster, resumeText, visibleResume } from "@/lib/resume";
 import { computeResumePerformance } from "@/lib/stats";
@@ -153,7 +154,7 @@ function ResumesViewInner() {
               }
             />
           ) : (
-            <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {tailored.map((resume) => (
                 <TailoredCard
                   key={resume.id}
@@ -180,23 +181,35 @@ function ResumesViewInner() {
                 if (!resume) return null;
                 return (
                   <div key={entry.resumeId} className="space-y-1">
-                    <div className="flex items-baseline justify-between gap-2 text-xs">
+                    <div className="flex items-center justify-between gap-3 text-xs">
                       <Link
                         href={`/resumes/${resume.id}`}
-                        className="truncate font-medium text-ink hover:text-brand"
+                        className="truncate font-medium text-ink hover:text-ink-muted"
                       >
                         {resume.name}
                       </Link>
-                      <span className="shrink-0 text-ink-muted">
-                        {entry.interviews}/{entry.used} reached interview
-                        {entry.offers > 0 ? ` · ${entry.offers} offer` : ""}
+                      <span className="flex shrink-0 items-center gap-2">
+                        {entry.used >= 3 ? (
+                          <Sparkline
+                            values={[0, entry.interviewRate]}
+                            className="h-3 w-[72px]"
+                            label={`${entry.interviewRate} percent interview rate`}
+                          />
+                        ) : null}
+                        <span
+                          className={cn(
+                            "font-numeral",
+                            entry.used >= 3 && entry.interviewRate >= 50
+                              ? "text-positive"
+                              : entry.used >= 3 && entry.interviewRate === 0
+                                ? "text-negative"
+                                : "text-ink-muted",
+                          )}
+                        >
+                          {entry.interviews} of {entry.used} reached interview
+                          {entry.offers > 0 ? ` · ${entry.offers} offer` : ""}
+                        </span>
                       </span>
-                    </div>
-                    <div className="h-1.5 overflow-hidden rounded-full bg-surface-muted">
-                      <div
-                        className="h-full rounded-full bg-brand transition-[width] duration-700"
-                        style={{ width: `${entry.interviewRate}%` }}
-                      />
                     </div>
                   </div>
                 );
@@ -229,7 +242,9 @@ function MasterCard({ resume }: { resume: Resume }) {
           size={92}
           label={`Master resume ${completeness} percent complete`}
         >
-          <span className="text-lg font-semibold text-ink">{completeness}%</span>
+          <span className="font-numeral text-lg font-semibold text-ink">
+            {completeness}%
+          </span>
           <span className="text-[10px] text-ink-subtle">complete</span>
         </ProgressRing>
 
@@ -240,7 +255,10 @@ function MasterCard({ resume }: { resume: Resume }) {
               Master
             </span>
             <span className="text-[11px] text-ink-subtle">
-              Updated {formatDate(resume.updatedAt.slice(0, 10))}
+              Updated{" "}
+              <span className="font-numeral">
+                {formatDate(resume.updatedAt.slice(0, 10))}
+              </span>
             </span>
           </div>
 
@@ -304,7 +322,7 @@ function TailoredCard({
     : null;
 
   return (
-    <li className="flex flex-col rounded-xl border border-line bg-surface p-3.5 shadow-card transition hover:border-line-strong">
+    <li className="flex flex-col rounded-[1.75rem] bg-surface p-4 shadow-card transition-[box-shadow] duration-200 hover:shadow-raised">
       <Link href={`/resumes/${resume.id}`} className="min-w-0">
         <h3 className="truncate text-sm font-semibold text-ink">
           {resume.name}
@@ -328,12 +346,10 @@ function TailoredCard({
         {match && !match.empty ? (
           <span
             className={cn(
-              "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium",
-              match.score >= 70
-                ? "bg-positive/10 text-positive"
-                : match.score >= 45
-                  ? "bg-accent-soft text-accent"
-                  : "bg-negative/10 text-negative",
+              "chip-tone font-numeral inline-flex items-center gap-1 rounded-lg px-1.5 py-0.5 text-[11px]",
+              matchSignal(match.score) === "positive" && "bg-positive-soft text-positive",
+              matchSignal(match.score) === "negative" && "bg-negative-soft text-negative",
+              matchSignal(match.score) === "neutral" && "bg-accent-soft text-accent-on-soft",
             )}
           >
             <Target size={10} aria-hidden="true" />
@@ -342,14 +358,14 @@ function TailoredCard({
         ) : null}
 
         {diff ? (
-          <span className="rounded-md bg-brand-soft px-1.5 py-0.5 text-[11px] font-medium text-brand-ink">
+          <span className="text-[11px] text-ink-muted">
             {diff.totalChanges} edit{diff.totalChanges === 1 ? "" : "s"}
           </span>
         ) : null}
 
         {performance && performance.used > 0 ? (
-          <span className="rounded-md bg-surface-muted px-1.5 py-0.5 text-[11px] text-ink-muted">
-            {performance.interviews}/{performance.used} interviews
+          <span className="text-[11px] text-ink-muted">
+            {performance.interviews} of {performance.used} interviews
           </span>
         ) : null}
       </div>

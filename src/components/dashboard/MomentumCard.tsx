@@ -3,100 +3,101 @@
 import { Flame } from "lucide-react";
 
 import { Panel, PanelBody, PanelHeader } from "@/components/ui/Panel";
-import { ProgressRing } from "@/components/ui/ProgressRing";
+import { Sparkline } from "@/components/ui/Sparkline";
 import { cn } from "@/lib/cn";
+import { addDays, formatShortDate } from "@/lib/dates";
 import type { MomentumStats } from "@/lib/stats";
 
 /**
- * Weekly goal, streak, and an eight-week bar chart. The point is momentum:
- * applying is a habit, and a visible streak is the cheapest nudge there is.
+ * Weekly goal as a tally plus an eight-week bar chart. Interview-rate
+ * n≥3 gating lives on the resume performance panel, not here.
  */
 export function MomentumCard({ momentum }: { momentum: MomentumStats }) {
-  const { thisWeek, weeklyGoal, goalProgress, streakDays, weeks, bestWeek } =
-    momentum;
+  const { thisWeek, weeklyGoal, goalProgress, streakDays, weeks } = momentum;
   const remaining = Math.max(0, weeklyGoal - thisWeek);
-  const scaleMax = Math.max(bestWeek, weeklyGoal, 1);
+  const slots = Math.max(weeklyGoal, 1);
+  const current = weeks[weeks.length - 1];
+  const weekRange = current
+    ? `${formatShortDate(current.weekStart)}–${formatShortDate(addDays(current.weekStart, 6))}`
+    : null;
 
   return (
     <Panel>
       <PanelHeader
-        title="Momentum"
-        description="Applications sent per week."
+        title={
+          <span className="inline-flex items-center gap-1.5">
+            Momentum
+            <Flame
+              size={18}
+              aria-hidden="true"
+              className={streakDays > 0 ? "text-negative" : "text-ink-subtle"}
+            />
+          </span>
+        }
+        description={
+          weekRange
+            ? `Applications sent per week · ${weekRange}`
+            : "Applications sent per week."
+        }
         action={
           streakDays > 0 ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-medium text-accent">
-              <Flame size={12} aria-hidden="true" />
-              {streakDays} day streak
+            <span className="font-numeral text-[11px] text-ink-muted">
+              {streakDays} day{streakDays === 1 ? "" : "s"} in a row
             </span>
-          ) : null
+          ) : (
+            <span className="text-[11px] text-ink-subtle">No streak yet</span>
+          )
         }
       />
-      <PanelBody className="flex flex-col gap-5 sm:flex-row sm:items-center">
-        <div className="flex items-center gap-3.5">
-          <ProgressRing
-            value={goalProgress}
-            size={88}
-            label={`${thisWeek} of ${weeklyGoal} applications this week`}
-            indicatorClassName={goalProgress >= 100 ? "stroke-positive" : undefined}
-          >
-            <span className="text-xl font-semibold tabular-nums text-ink">
-              {thisWeek}
+      <PanelBody className="flex flex-col gap-6 sm:flex-row sm:items-center">
+        <div>
+          <p className="font-numeral text-[28px] font-semibold leading-none text-ink">
+            {thisWeek}
+            <span className="text-[13px] font-medium text-ink-muted">
+              {" "}
+              of {weeklyGoal}
             </span>
-            <span className="text-[10px] text-ink-subtle">of {weeklyGoal}</span>
-          </ProgressRing>
-
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-ink">
-              {goalProgress >= 100
-                ? "Weekly goal hit"
-                : `${remaining} to go this week`}
-            </p>
-            <p className="mt-0.5 text-xs text-ink-muted">
-              {goalProgress >= 100
-                ? "Anything past this is a bonus."
-                : `Target is ${weeklyGoal} per week. Adjust it in Settings.`}
-            </p>
-          </div>
+          </p>
+          <p className="mt-2 text-[13px] text-ink">
+            {goalProgress >= 100
+              ? "Weekly goal hit"
+              : `${remaining} to go this week`}
+          </p>
+          <p className="mt-1 text-[11px] text-ink-muted">
+            {goalProgress >= 100
+              ? "Anything past this is a bonus."
+              : `Target is ${weeklyGoal} per week. Adjust it in Settings.`}
+          </p>
+          <ol
+            className="mt-3 flex gap-1"
+            aria-label={`${thisWeek} of ${weeklyGoal} applications this week`}
+          >
+            {Array.from({ length: slots }, (_, index) => (
+              <li
+                key={index}
+                className={cn(
+                  "h-2 w-4 rounded-full",
+                  index < thisWeek ? "bg-brand" : "bg-surface-muted",
+                )}
+              />
+            ))}
+          </ol>
         </div>
 
-        <div className="flex-1">
-          <ul className="flex items-end justify-between gap-1.5" aria-hidden="true">
-            {weeks.map((week, index) => {
-              const height = Math.max(
-                4,
-                Math.round((week.count / scaleMax) * 64),
-              );
-              const isCurrent = index === weeks.length - 1;
-              return (
-                <li
-                  key={week.weekStart}
-                  className="flex min-w-0 flex-1 flex-col items-center gap-1"
-                >
-                  <span className="text-[10px] tabular-nums text-ink-subtle">
-                    {week.count || ""}
-                  </span>
-                  <span
-                    style={{ height }}
-                    className={cn(
-                      "w-full rounded-t transition-[height] duration-700",
-                      week.count === 0
-                        ? "bg-surface-muted"
-                        : isCurrent
-                          ? "bg-brand"
-                          : "bg-brand/45",
-                    )}
-                  />
-                  <span className="truncate text-[9px] text-ink-subtle">
-                    {week.label}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-          <p className="sr-only">
-            {weeks
-              .map((week) => `Week of ${week.label}: ${week.count} applications`)
+        <div className="min-w-0 flex-1">
+          <Sparkline
+            values={weeks.map((week) => week.count)}
+            labels={weeks.map((week) => week.label)}
+            className="h-24 text-brand"
+            label={weeks
+              .map(
+                (week) =>
+                  `Week of ${week.label}: ${week.count} applications`,
+              )
               .join(". ")}
+          />
+          <p className="mt-1 text-[11px] text-ink-subtle">
+            Week starting date, oldest to this week.
           </p>
         </div>
       </PanelBody>
